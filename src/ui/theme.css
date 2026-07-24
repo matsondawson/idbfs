@@ -1,0 +1,41 @@
+.idbfs-dark {
+  --idbfs-text: #cdd6f4;
+  --idbfs-text-muted: #6c7086;
+  --idbfs-text-subtle: #a6adc8;
+  --idbfs-accent: #4ec9b0;
+  --idbfs-accent-blue: #89b4fa;
+  --idbfs-surface: #252526;
+  --idbfs-surface-hover: #2d2d2d;
+  --idbfs-border: #3d3d3d;
+  --idbfs-border-light: #2d2d2d;
+  --idbfs-input-bg: #1e1e1e;
+  --idbfs-selected-bg: rgba(255, 255, 255, 0.08);
+  --idbfs-dragover-bg: rgba(137, 180, 250, 0.15);
+  --idbfs-dragover-outline: #89b4fa;
+  --idbfs-danger: #f38ba8;
+  --idbfs-error: #f44747;
+  --idbfs-terminal-text: #d4d4d4;
+  --idbfs-audio-name: #9cdcfe;
+  --idbfs-overlay-bg: rgba(78, 201, 176, 0.12);
+}
+
+.idbfs-light {
+  --idbfs-text: #1e1e1e;
+  --idbfs-text-muted: #888888;
+  --idbfs-text-subtle: #555555;
+  --idbfs-accent: #0d7d6e;
+  --idbfs-accent-blue: #0066b8;
+  --idbfs-surface: #f3f3f3;
+  --idbfs-surface-hover: #e8e8e8;
+  --idbfs-border: #cccccc;
+  --idbfs-border-light: #e0e0e0;
+  --idbfs-input-bg: #ffffff;
+  --idbfs-selected-bg: rgba(0, 0, 0, 0.07);
+  --idbfs-dragover-bg: rgba(0, 102, 184, 0.1);
+  --idbfs-dragover-outline: #0066b8;
+  --idbfs-danger: #c0392b;
+  --idbfs-error: #cc0000;
+  --idbfs-terminal-text: #333333;
+  --idbfs-audio-name: #0066b8;
+  --idbfs-overlay-bg: rgba(13, 125, 110, 0.1);
+}

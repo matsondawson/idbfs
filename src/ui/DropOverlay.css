@@ -1,0 +1,18 @@
+@import "./theme.css";
+
+.idbfs-drop-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--idbfs-overlay-bg);
+  border: 2px dashed var(--idbfs-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.idbfs-drop-overlay__label {
+  color: var(--idbfs-accent);
+  font-size: 1.4rem;
+}

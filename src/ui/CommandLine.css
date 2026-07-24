@@ -1,0 +1,25 @@
+@import "./theme.css";
+
+.idbfs-cmdline {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 4px 0;
+}
+
+.idbfs-cmdline__prompt {
+  color: var(--idbfs-accent);
+  white-space: pre;
+  user-select: none;
+}
+
+.idbfs-cmdline__input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--idbfs-terminal-text);
+  font-family: inherit;
+  font-size: inherit;
+  caret-color: var(--idbfs-terminal-text);
+}
