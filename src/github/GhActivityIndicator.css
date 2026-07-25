@@ -1,0 +1,24 @@
+.idbfs-gh-activity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--idbfs-text-muted);
+  padding: 4px 8px;
+}
+
+.idbfs-gh-activity__spinner {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--idbfs-border);
+  border-top-color: var(--idbfs-accent);
+  animation: idbfs-gh-spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes idbfs-gh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

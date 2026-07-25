@@ -10,6 +10,12 @@
   outline: none;
 }
 
+.idbfs-tree__toolbar {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--idbfs-border-light);
+  padding: 4px;
+}
+
 .idbfs-tree__list {
   flex: 1;
   overflow-y: auto;

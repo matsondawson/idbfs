@@ -60,7 +60,14 @@ function fmtDu(stats: DirStats): OutputLine[] {
   }));
 }
 
-export async function runCommand(raw: string, cwd: string, fs: Idbfs): Promise<CommandResult> {
+export type ExtraCommand = (args: string[], cwd: string, fs: Idbfs) => Promise<CommandResult>;
+
+export async function runCommand(
+  raw: string,
+  cwd: string,
+  fs: Idbfs,
+  extra?: Record<string, ExtraCommand>,
+): Promise<CommandResult> {
   const tokens = raw.trim().split(/\s+/);
   const cmd = tokens[0] ?? "";
   const arg = tokens[1];
@@ -69,6 +76,9 @@ export async function runCommand(raw: string, cwd: string, fs: Idbfs): Promise<C
   if (cmd.startsWith("./") || (cmd.startsWith("/") && cmd.length > 1)) {
     return runCommand(`view ${cmd}`, cwd, fs);
   }
+
+  const extraHandler = extra?.[cmd.toLowerCase()];
+  if (extraHandler) return extraHandler(tokens.slice(1), cwd, fs);
 
   switch (cmd.toLowerCase()) {
     case "ls": {
@@ -211,7 +221,8 @@ export async function runCommand(raw: string, cwd: string, fs: Idbfs): Promise<C
     case "pwd":
       return { output: [{ kind: "text", text: cwd }] };
 
-    case "help":
+    case "help": {
+      const extraNames = Object.keys(extra ?? {});
       return {
         output: [
           { kind: "text", text: "commands:" },
@@ -230,8 +241,19 @@ export async function runCommand(raw: string, cwd: string, fs: Idbfs): Promise<C
           { kind: "text", text: "  clear          clear the terminal" },
           { kind: "text", text: "" },
           { kind: "text", text: "upload: drag & drop files or paste image (ctrl+v)" },
+          ...(extraNames.length > 0
+            ? [
+                { kind: "text" as const, text: "" },
+                { kind: "text" as const, text: "other commands:" },
+                ...extraNames.map((name) => ({
+                  kind: "text" as const,
+                  text: `  ${name}   run '${name} help' for details`,
+                })),
+              ]
+            : []),
         ],
       };
+    }
 
     case "":
       return { output: [] };

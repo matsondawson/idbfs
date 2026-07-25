@@ -11,6 +11,8 @@ interface Props {
   cwd?: string;
   onUploaded?: (names: string[]) => void;
   theme?: "light" | "dark";
+  toolbar?: React.ReactNode;
+  renderContextMenuExtra?: (entry: ListEntry, close: () => void) => React.ReactNode;
 }
 
 interface ContextMenu {
@@ -26,7 +28,15 @@ interface Preview {
   text?: string;
 }
 
-export function FileTree({ fs, refreshKey, cwd = "/", onUploaded, theme = "dark" }: Props) {
+export function FileTree({
+  fs,
+  refreshKey,
+  cwd = "/",
+  onUploaded,
+  theme = "dark",
+  toolbar,
+  renderContextMenuExtra,
+}: Props) {
   const [childMap, setChildMap] = useState<Map<string, ListEntry[]>>(new Map());
   const [expanded, setExpanded] = useState<Set<string>>(new Set([ROOT_ID]));
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -680,6 +690,8 @@ export function FileTree({ fs, refreshKey, cwd = "/", onUploaded, theme = "dark"
         }
       }}
     >
+      {toolbar && <div className="idbfs-tree__toolbar">{toolbar}</div>}
+
       <div
         className="idbfs-tree__list"
         onClick={() => {
@@ -768,6 +780,7 @@ export function FileTree({ fs, refreshKey, cwd = "/", onUploaded, theme = "dark"
                 Download
               </div>
             )}
+            {renderContextMenuExtra?.(contextMenu.entry, () => setContextMenu(null))}
             {canDelete && (
               <>
                 <div className="idbfs-tree__divider" />

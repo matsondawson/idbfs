@@ -14,9 +14,20 @@ interface Props {
   onCompletions: (candidates: string[]) => void;
   onUploaded?: (names: string[]) => void;
   theme?: "light" | "dark";
+  statusLine?: React.ReactNode;
 }
 
-export function Terminal({ lines, cwd, fs, history, onSubmit, onCompletions, onUploaded, theme = "dark" }: Props) {
+export function Terminal({
+  lines,
+  cwd,
+  fs,
+  history,
+  onSubmit,
+  onCompletions,
+  onUploaded,
+  theme = "dark",
+  statusLine,
+}: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const { externalDrag, onDragOver, onDragLeave, onDrop, onPaste } = useFileDrop(fs, cwd, onUploaded);
 
@@ -35,6 +46,7 @@ export function Terminal({ lines, cwd, fs, history, onSubmit, onCompletions, onU
             ))}
           </div>
         ))}
+        {statusLine}
         <CommandLine cwd={cwd} fs={fs} history={history} onSubmit={onSubmit} onCompletions={onCompletions} />
         <div ref={bottomRef} />
       </div>

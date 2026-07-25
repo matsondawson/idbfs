@@ -2,6 +2,8 @@
 
 A browser filesystem backed by IndexedDB. Licensed under MIT.
 
+![idbfs terminal and file tree example](docs/app-example.png)
+
 ---
 
 ## Storage model
@@ -189,10 +191,6 @@ const { files, size, dirs } = await fs.du('/docs');
 
 `DirStats`: `{ path, files, size, dirs: DirStats[] }`
 
-#### `fs.dump()` → `Entry[]`
-
-All nodes with computed paths. Useful for debugging or export.
-
 ---
 
 ### Node-ID-based API
@@ -232,27 +230,20 @@ result.candidates; // ['docs']    — all matches
 ```tsx
 import { FileTree } from './src/ui/FileTree';
 
-<FileTree fs={fs} refreshKey={n} onNavigate={(path) => setCwd(path)} />
+<FileTree fs={fs} refreshKey={n} cwd={cwd} onUploaded={(names) => console.log(names)} />
 ```
 
 - Expand/collapse directories via the `▶`/`▼` chevron
 - Click a file to preview (image, audio, or text) in the panel below the tree
 - Double-click any node to rename inline
-- Right-click for context menu: Open in terminal, New folder, Copy, Delete
+- Right-click for context menu: New folder (dirs), Paste (dirs, when the clipboard has entries), Copy, Rename, Download (when files are selected), Delete
 - Drag a node onto a directory to move it
+- Drag files from the OS onto the tree, or paste an image, to upload into `cwd` — reported via `onUploaded`
 - `refreshKey` — increment after any filesystem mutation to reload expanded directories
+- `toolbar` — optional `ReactNode` rendered above the tree
+- `renderContextMenuExtra(entry, close)` — inject extra context-menu items (used by GitHub sync's per-folder actions)
 
-### `DragDrop`
-
-Wraps content with OS file drop and clipboard paste (images) support. Uploads to the current `cwd`.
-
-```tsx
-import { DragDrop } from './src/ui/DragDrop';
-
-<DragDrop fs={fs} cwd={cwd} onUploaded={(names) => console.log(names)}>
-  {children}
-</DragDrop>
-```
+OS file drop and clipboard image paste are built in — both `FileTree` and `Terminal` accept an `onUploaded?: (names: string[]) => void` prop and handle drag/paste internally.
 
 ---
 
@@ -278,6 +269,33 @@ import { DragDrop } from './src/ui/DragDrop';
 Tab completes commands and paths (including `./` and `../`). Arrow keys navigate history. Ctrl+U clears the input. Click anywhere to focus the prompt.
 
 Upload: drag and drop files onto the window, or paste an image with Ctrl+V.
+
+---
+
+## GitHub sync
+
+This repo's demo app (`src/App.tsx`) can sync any folder against a real GitHub repository — push, pull, branches, `.gitignore` filtering, via `gh` commands in the terminal or a right-click menu on the tree. The implementation lives in `src/github/` and its code isn't bundled into the published `@octalgia/idbfs` dist (the lib build entry is `src/lib/index.ts`, which never imports it) — but `@octokit/rest` and `ignore` are still regular `dependencies` in `package.json`, so every install of the package pulls them in. Every hook the sync code uses is public library API: `runCommand`'s `extra` param is what wires `gh` commands into `Terminal`, and `FileTree`'s `toolbar`/`renderContextMenuExtra` props are what add the sign-in button and per-folder menu. Any consumer of the library — whether using `Terminal`, `FileTree`, or the raw `Idbfs` API directly — can wire up the same sync behavior in their own app.
+
+Sync is per-directory, like `.git`: any folder can point at a different repo by having its own `.github/idbfs-sync.json`, found by walking up from the current directory the same way git finds `.git/`. A nested folder with its own config is treated as an independent repo boundary — its content is never folded into an ancestor's push.
+
+```
+gh auth login <token>     store a github personal access token (fine-grained, Contents: read/write, scoped to one repo)
+gh auth logout / status
+
+gh clone <owner>/<repo>|<url> [branch]   create a subfolder named after the repo and pull into it (like `git clone`)
+gh init <owner>/<repo> [branch]          sync this directory without pulling (like `git init`)
+gh remote                                 show the resolved sync config for the current directory
+
+gh push [--force] [-m msg]                push local state (full snapshot each time)
+gh pull [--force <path>|--force-all]      pull remote state
+gh status                                 show local/remote changes and conflicts
+gh branch [name]                          list branches, or create one
+gh checkout <branch>                      switch the active branch (does not auto-pull)
+```
+
+The same actions are available by right-clicking a folder in the tree. Auth is the one thing that's global (one token, works across every repo it has access to) — everything else is scoped to whichever folder you're in.
+
+Auth is a Personal Access Token pasted by the user, stored in `localStorage`. There's no backend: GitHub's OAuth endpoints don't send CORS headers for browser `fetch`, so token-exchange flows aren't possible from a pure static app without a relay — a PAT was the pragmatic choice for now. Use a token scoped to just the repo(s) you intend to sync, not a broad classic PAT.
 
 ---
 

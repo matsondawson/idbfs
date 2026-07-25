@@ -16,6 +16,13 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // jsdom ties Storage APIs to an origin and leaves localStorage/sessionStorage
+    // undefined without one (defaults to the opaque-origin "about:blank")
+    environmentOptions: {
+      jsdom: {
+        url: 'http://localhost/',
+      },
+    },
     globals: true,
   },
 });

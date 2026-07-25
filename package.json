@@ -3,7 +3,12 @@
   "version": "1.0.0",
   "private": false,
   "description": "A browser filesystem backed by IndexedDB.",
-  "keywords": ["indexeddb", "filesystem", "browser", "react"],
+  "keywords": [
+    "indexeddb",
+    "filesystem",
+    "browser",
+    "react"
+  ],
   "author": "Matt Dawson",
   "license": "MIT",
   "repository": {
@@ -39,9 +44,9 @@
     "fmt": "oxfmt src",
     "fmt:check": "oxfmt --check src",
     "preview": "vite preview",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "test:ui": "vitest --ui",
+    "test": "NODE_OPTIONS=--no-experimental-webstorage vitest",
+    "test:run": "NODE_OPTIONS=--no-experimental-webstorage vitest run",
+    "test:ui": "NODE_OPTIONS=--no-experimental-webstorage vitest --ui",
     "prepublishOnly": "npm run lint && npm run test:run && npm run build",
     "release:patch": "npm version patch && npm publish",
     "release:minor": "npm version minor && npm publish",
@@ -68,5 +73,9 @@
   "peerDependencies": {
     "react": ">=19",
     "react-dom": ">=19"
+  },
+  "dependencies": {
+    "@octokit/rest": "^22.0.1",
+    "ignore": "^7.0.6"
   }
 }
