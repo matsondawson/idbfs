@@ -50,7 +50,29 @@ const MAP: Record<string, string> = {
   wasm: "application/wasm",
 };
 
+// Extensionless dotfiles whose "extension" (per split-on-".") is really just
+// the file's whole name — these are plain text by convention, not covered
+// by the extension map above.
+const DOTFILES = new Set([
+  ".gitignore",
+  ".gitattributes",
+  ".gitmodules",
+  ".dockerignore",
+  ".editorconfig",
+  ".env",
+  ".npmrc",
+  ".nvmrc",
+  ".prettierrc",
+  ".eslintrc",
+  ".babelrc",
+  ".bashrc",
+  ".zshrc",
+  ".profile",
+]);
+
 export function mimeFromName(name: string): string {
+  const lower = name.toLowerCase();
+  if (DOTFILES.has(lower) || lower.startsWith(".env.")) return "text/plain";
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   return MAP[ext] ?? "application/octet-stream";
 }

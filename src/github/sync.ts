@@ -1,6 +1,6 @@
 import type { Idbfs } from "../lib";
 import type { GitHubClient, TreeEntry } from "./client";
-import { buildIgnoreMatcher } from "./gitignore";
+import { buildIgnoreMatcher } from "../lib/gitignore";
 import { computeBlobSha1, arrayBufferToBase64, base64ToArrayBuffer } from "./blobsha";
 import { CONFIG_FILE, STATE_FILE, readConfig, writeConfig, readState, writeState } from "./syncMeta";
 import { mapLimit } from "./concurrency";

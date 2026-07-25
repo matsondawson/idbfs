@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import type { Idbfs, ListEntry } from "../lib";
-import { ROOT_ID, mimeFromName } from "../lib";
+import type { Idbfs, ListEntry, IgnoreMatcher } from "../lib";
+import { ROOT_ID, mimeFromName, buildIgnoreMatcher } from "../lib";
 import { fileIconColor } from "./icons";
 import { useFileDrop, DropOverlay } from "./useFileDrop.tsx";
 import "./FileTree.css";
@@ -48,6 +48,11 @@ export function FileTree({
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [clipboard, setClipboard] = useState<ListEntry[]>([]);
+  const [showHidden, setShowHidden] = useState(false);
+  const [showIgnored, setShowIgnored] = useState(false);
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const [ignoreMatcher, setIgnoreMatcher] = useState<IgnoreMatcher | null>(null);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
   const dragSourceIds = useRef<Set<string>>(new Set());
   const lastClickedId = useRef<string | null>(null);
   const previewUrl = useRef<string | null>(null);
@@ -101,6 +106,29 @@ export function FileTree({
   useEffect(() => {
     void loadDir(ROOT_ID);
   }, [loadDir]);
+
+  useEffect(() => {
+    if (showIgnored) {
+      setIgnoreMatcher(null);
+      return;
+    }
+    let cancelled = false;
+    buildIgnoreMatcher(fs, "/").then((matcher) => {
+      if (!cancelled) setIgnoreMatcher(() => matcher);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [fs, refreshKey, showIgnored]);
+
+  useEffect(() => {
+    if (!filterMenuOpen) return;
+    const dismiss = (e: MouseEvent) => {
+      if (!filterMenuRef.current?.contains(e.target as Node)) setFilterMenuOpen(false);
+    };
+    document.addEventListener("mousedown", dismiss);
+    return () => document.removeEventListener("mousedown", dismiss);
+  }, [filterMenuOpen]);
 
   useEffect(() => {
     if (renamingId && renameRef.current) renameRef.current.focus();
@@ -159,6 +187,15 @@ export function FileTree({
     }
   }, [contextMenu]);
 
+  const isVisible = useCallback(
+    (entry: ListEntry) => {
+      if (!showHidden && entry.name.startsWith(".")) return false;
+      if (!showIgnored && ignoreMatcher?.(entry.path.slice(1), entry.type === "dir")) return false;
+      return true;
+    },
+    [showHidden, showIgnored, ignoreMatcher],
+  );
+
   const toggle = useCallback(
     (nodeId: string) => {
       if (nodeId === ROOT_ID) return;
@@ -207,7 +244,7 @@ export function FileTree({
     (e: React.MouseEvent, entry: ListEntry) => {
       treeRef.current?.focus({ preventScroll: true });
       if (e.shiftKey && lastClickedId.current) {
-        const flat = flatIds(childMap, expanded);
+        const flat = flatIds(childMap, expanded, isVisible);
         const a = flat.indexOf(lastClickedId.current);
         const b = flat.indexOf(entry.id);
         if (a !== -1 && b !== -1) {
@@ -232,7 +269,7 @@ export function FileTree({
         else setPreview(null);
       }
     },
-    [childMap, expanded, loadPreview],
+    [childMap, expanded, loadPreview, isVisible],
   );
 
   const handleContextMenu = useCallback((e: React.MouseEvent, entry: ListEntry) => {
@@ -492,7 +529,7 @@ export function FileTree({
     const isSelected = selectedIds.has(entry.id);
     const isDragOver = dragOverId === entry.id;
     const isRenaming = renamingId === entry.id;
-    const children = childMap.get(entry.id);
+    const children = childMap.get(entry.id)?.filter(isVisible);
 
     return (
       <div key={entry.id}>
@@ -690,6 +727,37 @@ export function FileTree({
         }
       }}
     >
+      <div className="idbfs-tree__filterbar" ref={filterMenuRef}>
+        <button
+          type="button"
+          className="idbfs-tree__filter-btn"
+          onClick={() => setFilterMenuOpen((v) => !v)}
+          title="Filter which files are shown"
+        >
+          Filter ▾
+        </button>
+        {filterMenuOpen && (
+          <div className="idbfs-tree__filter-menu">
+            <label className="idbfs-tree__filter-option">
+              <input
+                type="checkbox"
+                checked={showHidden}
+                onChange={(e) => setShowHidden(e.target.checked)}
+              />
+              Show hidden files
+            </label>
+            <label className="idbfs-tree__filter-option">
+              <input
+                type="checkbox"
+                checked={showIgnored}
+                onChange={(e) => setShowIgnored(e.target.checked)}
+              />
+              Show gitignored files
+            </label>
+          </div>
+        )}
+      </div>
+
       {toolbar && <div className="idbfs-tree__toolbar">{toolbar}</div>}
 
       <div
@@ -802,13 +870,14 @@ export function FileTree({
 function flatIds(
   childMap: Map<string, ListEntry[]>,
   expanded: Set<string>,
+  isVisible: (entry: ListEntry) => boolean,
   parentId: string = ROOT_ID,
 ): string[] {
   const result: string[] = [];
-  for (const entry of childMap.get(parentId) ?? []) {
+  for (const entry of (childMap.get(parentId) ?? []).filter(isVisible)) {
     result.push(entry.id);
     if (entry.type === "dir" && expanded.has(entry.id)) {
-      result.push(...flatIds(childMap, expanded, entry.id));
+      result.push(...flatIds(childMap, expanded, isVisible, entry.id));
     }
   }
   return result;

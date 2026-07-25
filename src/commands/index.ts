@@ -82,9 +82,12 @@ export async function runCommand(
 
   switch (cmd.toLowerCase()) {
     case "ls": {
-      const target = arg ?? cwd;
+      const rest = tokens.slice(1);
+      const showAll = rest.includes("-a");
+      const target = rest.find((t) => !t.startsWith("-")) ?? cwd;
       try {
-        const entries = await fs.ls(target, cwd);
+        let entries = await fs.ls(target, cwd);
+        if (!showAll) entries = entries.filter((e) => !e.name.startsWith("."));
         if (entries.length === 0) return { output: [{ kind: "text", text: "(empty)" }] };
         return { output: fmtAll(entries) };
       } catch (e) {
@@ -226,7 +229,7 @@ export async function runCommand(
       return {
         output: [
           { kind: "text", text: "commands:" },
-          { kind: "text", text: "  ls [path]      list directory" },
+          { kind: "text", text: "  ls [-a] [path] list directory (-a shows hidden files)" },
           { kind: "text", text: "  cd [path]      change directory" },
           { kind: "text", text: "  mkdir <path>   create directory" },
           { kind: "text", text: "  rm <file>      remove file" },

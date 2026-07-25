@@ -3,6 +3,8 @@ export { ROOT_ID } from "./db";
 export { mimeFromName } from "./mime";
 export { complete } from "./complete";
 export type { CompletionResult } from "./complete";
+export { buildIgnoreMatcher } from "./gitignore";
+export type { IgnoreMatcher } from "./gitignore";
 export type {
   Entry,
   FileEntry,

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import "fake-indexeddb/auto";
 import { Idbfs } from "../lib";
-import { buildIgnoreMatcher } from "../github/gitignore";
+import { buildIgnoreMatcher } from "../lib/gitignore";
 
 describe("buildIgnoreMatcher", () => {
   let fs: Idbfs;

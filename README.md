@@ -223,6 +223,12 @@ result.candidates; // ['docs']    — all matches
 
 ---
 
+### `buildIgnoreMatcher(fs, rootPath)` → `IgnoreMatcher`
+
+Builds a single predicate `(relPath, isDir) => boolean` from every `.gitignore` found under `rootPath`, cascaded per real git semantics (deeper rules layer on top of shallower ones, including negations). `relPath` is relative to `rootPath`. Used internally by `FileTree`'s "Show gitignored files" filter.
+
+---
+
 ## React components
 
 ### `FileTree`
@@ -239,6 +245,7 @@ import { FileTree } from './src/ui/FileTree';
 - Right-click for context menu: New folder (dirs), Paste (dirs, when the clipboard has entries), Copy, Rename, Download (when files are selected), Delete
 - Drag a node onto a directory to move it
 - Drag files from the OS onto the tree, or paste an image, to upload into `cwd` — reported via `onUploaded`
+- `Filter ▾` menu — toggle "Show hidden files" (dotfiles, off by default) and "Show gitignored files" (off by default, matched against every `.gitignore` found under `/`)
 - `refreshKey` — increment after any filesystem mutation to reload expanded directories
 - `toolbar` — optional `ReactNode` rendered above the tree
 - `renderContextMenuExtra(entry, close)` — inject extra context-menu items (used by GitHub sync's per-folder actions)
@@ -251,7 +258,7 @@ OS file drop and clipboard image paste are built in — both `FileTree` and `Ter
 
 | Command | Description |
 |---------|-------------|
-| `ls [path]` | List directory |
+| `ls [-a] [path]` | List directory (dotfiles hidden unless `-a`) |
 | `cd [path]` | Change directory (persisted across reloads) |
 | `mkdir <path>` | Create directory |
 | `rm <file>` | Remove file |
