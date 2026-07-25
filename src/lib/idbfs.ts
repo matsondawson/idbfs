@@ -4,14 +4,20 @@ import type { Node, Entry, FileEntry, ListEntry, IdbfsOptions, DirStats, FsEvent
 export class Idbfs {
   private db!: IDBDatabase;
   private readonly ready: Promise<void>;
+  private readonly _readOnly: boolean;
   private _listeners: Array<{ watchPath: string; cb: (event: FsEvent) => void }> = [];
 
   constructor(options: IdbfsOptions = {}) {
-    const { dbName = "idbfs", dbVersion = 3 } = options;
+    const { dbName = "idbfs", dbVersion = 3, readOnly = false } = options;
+    this._readOnly = readOnly;
     this.ready = openDB(dbName, dbVersion).then((db) => {
       this.db = db;
       return this._ensureRoot();
     });
+  }
+
+  get readOnly(): boolean {
+    return this._readOnly;
   }
 
   async init(): Promise<this> {
@@ -20,6 +26,10 @@ export class Idbfs {
   }
 
   // ── internal helpers ──────────────────────────────────────────────────────
+
+  private _assertWritable(): void {
+    if (this._readOnly) throw new Error("filesystem is read-only");
+  }
 
   private async _ensureRoot(): Promise<void> {
     const root = await getById(this.db, ROOT_ID);
@@ -149,6 +159,7 @@ export class Idbfs {
 
   async mkdir(path: string, cwd = "/"): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const abs = this.normalizePath(path, cwd);
     if (abs === "/") return;
     const parts = abs.split("/").filter(Boolean);
@@ -172,6 +183,7 @@ export class Idbfs {
 
   async rmdir(path: string, cwd = "/"): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const abs = this.normalizePath(path, cwd);
     if (abs === "/") throw new Error("cannot remove root directory");
     const node = await this._assertNode(abs);
@@ -184,6 +196,7 @@ export class Idbfs {
 
   async mv(src: string, dest: string, cwd = "/"): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const absSrc = this.normalizePath(src, cwd);
     let absDest = this.normalizePath(dest, cwd);
     const srcNode = await this._assertNode(absSrc);
@@ -200,6 +213,7 @@ export class Idbfs {
 
   async cp(src: string, dest: string, cwd = "/"): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const absSrc = this.normalizePath(src, cwd);
     let absDest = this.normalizePath(dest, cwd);
     const srcNode = await this._assertNode(absSrc);
@@ -240,6 +254,7 @@ export class Idbfs {
 
   async rm(path: string, cwd = "/"): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const abs = this.normalizePath(path, cwd);
     const node = await this._assertNode(abs);
     if (node.type !== "file") throw new Error(`is a directory: ${abs}`);
@@ -249,6 +264,7 @@ export class Idbfs {
 
   async writeFile(path: string, data: ArrayBuffer | string, cwd = "/"): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const abs = this.normalizePath(path, cwd);
     const parts = abs.split("/").filter(Boolean);
     const name = parts.at(-1)!;
@@ -324,6 +340,7 @@ export class Idbfs {
 
   async renameNode(nodeId: string, newName: string): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const node = await getById(this.db, nodeId);
     if (!node) throw new Error(`no such node`);
     if (!newName.trim()) throw new Error(`name cannot be empty`);
@@ -337,6 +354,7 @@ export class Idbfs {
 
   async mkdirUnder(parentId: string, name: string): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const parent = await getById(this.db, parentId);
     if (!parent || parent.type !== "dir") throw new Error(`not a directory`);
     const existing = await getChildByName(this.db, parentId, name);
@@ -349,6 +367,7 @@ export class Idbfs {
 
   async rmById(nodeId: string): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const node = await getById(this.db, nodeId);
     if (!node) throw new Error(`no such node`);
     if (node.type !== "file") throw new Error(`is a directory`);
@@ -359,6 +378,7 @@ export class Idbfs {
 
   async rmDirById(nodeId: string): Promise<void> {
     await this.ready;
+    this._assertWritable();
     if (nodeId === ROOT_ID) throw new Error(`cannot remove root`);
     const node = await getById(this.db, nodeId);
     if (!node) throw new Error(`no such node`);
@@ -372,6 +392,7 @@ export class Idbfs {
 
   async mvNode(srcId: string, destParentId: string, newName?: string): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const src = await getById(this.db, srcId);
     if (!src) throw new Error(`no such node`);
     const destParent = await getById(this.db, destParentId);
@@ -397,6 +418,7 @@ export class Idbfs {
 
   async cpNode(srcId: string, destParentId: string, newName?: string): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const src = await getById(this.db, srcId);
     if (!src) throw new Error(`no such node`);
     const destParent = await getById(this.db, destParentId);

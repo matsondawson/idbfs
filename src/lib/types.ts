@@ -36,6 +36,7 @@ export interface ListEntry {
 export interface IdbfsOptions {
   dbName?: string;
   dbVersion?: number;
+  readOnly?: boolean;
 }
 
 export interface DirStats {

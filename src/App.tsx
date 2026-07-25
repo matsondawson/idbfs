@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { connectIdbfs, Idbfs } from "./lib";
+import type { Feature } from "./lib";
 import { runCommand } from "./commands";
 import type { OutputLine } from "./commands";
 import { Terminal } from "./ui/Terminal";
@@ -18,6 +19,7 @@ interface Block {
 
 let fs: Idbfs;
 const CWD_KEY = "idbfs:cwd";
+const FEATURES: Feature[] = ["github"];
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -68,7 +70,8 @@ export default function App() {
       // needs somewhere to sit while the command is still in flight
       pushLines([{ prompt, output: [] }]);
 
-      const result = await runCommand(cmd, cwd, fs, { gh: ghCommand });
+      const extra = FEATURES.includes("github") ? { gh: ghCommand } : undefined;
+      const result = await runCommand(cmd, cwd, fs, extra);
 
       pushLines([{ output: result.output }]);
       if (result.newCwd) {
@@ -110,6 +113,7 @@ export default function App() {
         refreshKey={refreshKey}
         cwd={cwd}
         onUploaded={handleUploaded}
+        features={FEATURES}
         toolbar={
           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
             <GhAuthButton />

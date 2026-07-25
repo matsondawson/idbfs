@@ -5,12 +5,15 @@ import { fileIconColor } from "./icons";
 import { useFileDrop, DropOverlay } from "./useFileDrop.tsx";
 import "./FileTree.css";
 
+export type Feature = "github";
+
 interface Props {
   fs: Idbfs;
   refreshKey: number;
   cwd?: string;
   onUploaded?: (names: string[]) => void;
   theme?: "light" | "dark";
+  features?: Feature[];
   toolbar?: React.ReactNode;
   renderContextMenuExtra?: (entry: ListEntry, close: () => void) => React.ReactNode;
 }
@@ -34,9 +37,12 @@ export function FileTree({
   cwd = "/",
   onUploaded,
   theme = "dark",
+  features = ["github"],
   toolbar,
   renderContextMenuExtra,
 }: Props) {
+  const readOnly = fs.readOnly;
+  const hasGithub = features.includes("github");
   const [childMap, setChildMap] = useState<Map<string, ListEntry[]>>(new Map());
   const [expanded, setExpanded] = useState<Set<string>>(new Set([ROOT_ID]));
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -534,8 +540,9 @@ export function FileTree({
     return (
       <div key={entry.id}>
         <div
-          draggable={!isRoot}
+          draggable={!isRoot && !readOnly}
           onDragStart={(e) => {
+            if (readOnly) return;
             const ids = selectedIds.has(entry.id) ? new Set(selectedIds) : new Set([entry.id]);
             if (!selectedIds.has(entry.id)) {
               setSelectedIds(ids);
@@ -546,7 +553,7 @@ export function FileTree({
             e.stopPropagation();
           }}
           onDragOver={(e) => {
-            if (!isDir) return;
+            if (!isDir || readOnly) return;
             if (
               e.dataTransfer.types.includes("application/idbfs-nodes") ||
               e.dataTransfer.types.includes("Files")
@@ -558,6 +565,7 @@ export function FileTree({
           }}
           onDragLeave={() => setDragOverId(null)}
           onDrop={(e) => {
+            if (readOnly) return;
             if (isDir && e.dataTransfer.types.includes("Files")) {
               e.preventDefault();
               e.stopPropagation();
@@ -621,7 +629,7 @@ export function FileTree({
             <span
               className="idbfs-tree__name"
               onDoubleClick={(e) => {
-                if (isRoot) return;
+                if (isRoot || readOnly) return;
                 e.stopPropagation();
                 setRenamingId(entry.id);
                 setRenameValue(entry.name);
@@ -687,16 +695,17 @@ export function FileTree({
     <div
       ref={treeRef}
       className={`idbfs-tree idbfs-${theme}`}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onExternalDrop}
-      onPaste={handlePasteImages}
+      onDragOver={readOnly ? undefined : onDragOver}
+      onDragLeave={readOnly ? undefined : onDragLeave}
+      onDrop={readOnly ? undefined : onExternalDrop}
+      onPaste={readOnly ? undefined : handlePasteImages}
       tabIndex={0}
       onKeyDown={(e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === "c") {
           e.preventDefault();
           handleCopyToClipboard();
         }
+        if (readOnly) return;
         if ((e.ctrlKey || e.metaKey) && e.key === "v") {
           void (async () => {
             let clipText: string | null = null;
@@ -727,38 +736,40 @@ export function FileTree({
         }
       }}
     >
-      <div className="idbfs-tree__filterbar" ref={filterMenuRef}>
-        <button
-          type="button"
-          className="idbfs-tree__filter-btn"
-          onClick={() => setFilterMenuOpen((v) => !v)}
-          title="Filter which files are shown"
-        >
-          Filter ▾
-        </button>
-        {filterMenuOpen && (
-          <div className="idbfs-tree__filter-menu">
-            <label className="idbfs-tree__filter-option">
-              <input
-                type="checkbox"
-                checked={showHidden}
-                onChange={(e) => setShowHidden(e.target.checked)}
-              />
-              Show hidden files
-            </label>
-            <label className="idbfs-tree__filter-option">
-              <input
-                type="checkbox"
-                checked={showIgnored}
-                onChange={(e) => setShowIgnored(e.target.checked)}
-              />
-              Show gitignored files
-            </label>
-          </div>
-        )}
-      </div>
+      <div className="idbfs-tree__topbar">
+        <div className="idbfs-tree__filterbar" ref={filterMenuRef}>
+          <button
+            type="button"
+            className="idbfs-tree__filter-btn"
+            onClick={() => setFilterMenuOpen((v) => !v)}
+            title="Filter which files are shown"
+          >
+            Filter ▾
+          </button>
+          {filterMenuOpen && (
+            <div className="idbfs-tree__filter-menu">
+              <label className="idbfs-tree__filter-option">
+                <input
+                  type="checkbox"
+                  checked={showHidden}
+                  onChange={(e) => setShowHidden(e.target.checked)}
+                />
+                Show hidden files
+              </label>
+              <label className="idbfs-tree__filter-option">
+                <input
+                  type="checkbox"
+                  checked={showIgnored}
+                  onChange={(e) => setShowIgnored(e.target.checked)}
+                />
+                Show gitignored files
+              </label>
+            </div>
+          )}
+        </div>
 
-      {toolbar && <div className="idbfs-tree__toolbar">{toolbar}</div>}
+        {hasGithub && toolbar && <div className="idbfs-tree__toolbar">{toolbar}</div>}
+      </div>
 
       <div
         className="idbfs-tree__list"
@@ -806,7 +817,7 @@ export function FileTree({
       >
         {contextMenu && (
           <>
-            {contextMenu.entry.type === "dir" && (
+            {!readOnly && contextMenu.entry.type === "dir" && (
               <>
                 <div
                   className="idbfs-tree__menu-item"
@@ -817,7 +828,7 @@ export function FileTree({
                 <div className="idbfs-tree__divider" />
               </>
             )}
-            {contextMenu.entry.type === "dir" && clipboard.length > 0 && (
+            {!readOnly && contextMenu.entry.type === "dir" && clipboard.length > 0 && (
               <>
                 <div
                   className="idbfs-tree__menu-item"
@@ -831,7 +842,7 @@ export function FileTree({
             <div className="idbfs-tree__menu-item" onClick={handleCopyToClipboard}>
               Copy
             </div>
-            {contextMenu.entry.id !== ROOT_ID && (
+            {!readOnly && contextMenu.entry.id !== ROOT_ID && (
               <div
                 className="idbfs-tree__menu-item"
                 onClick={() => {
@@ -848,8 +859,8 @@ export function FileTree({
                 Download
               </div>
             )}
-            {renderContextMenuExtra?.(contextMenu.entry, () => setContextMenu(null))}
-            {canDelete && (
+            {hasGithub && renderContextMenuExtra?.(contextMenu.entry, () => setContextMenu(null))}
+            {!readOnly && canDelete && (
               <>
                 <div className="idbfs-tree__divider" />
                 <div

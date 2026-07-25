@@ -17,6 +17,7 @@ export type {
   FsEventType,
 } from "./types";
 export { FileTree } from "../ui/FileTree";
+export type { Feature } from "../ui/FileTree";
 export { Terminal } from "../ui/Terminal";
 export { fileIconColor } from "../ui/icons";
 export { runCommand } from "../commands/index";

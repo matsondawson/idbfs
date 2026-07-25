@@ -10,19 +10,22 @@
   outline: none;
 }
 
-.idbfs-tree__toolbar {
+.idbfs-tree__topbar {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   border-bottom: 1px solid var(--idbfs-border-light);
   padding: 4px;
 }
 
+.idbfs-tree__toolbar {
+  display: flex;
+  align-items: center;
+}
+
 .idbfs-tree__filterbar {
   position: relative;
-  flex-shrink: 0;
-  display: flex;
-  justify-content: flex-end;
-  border-bottom: 1px solid var(--idbfs-border-light);
-  padding: 4px;
 }
 
 .idbfs-tree__filter-btn {

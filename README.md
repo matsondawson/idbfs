@@ -57,6 +57,9 @@ const fs = await connectIdbfs({ dbName: 'myapp' });
 |--------|------|---------|
 | `dbName` | `string` | `'idbfs'` |
 | `dbVersion` | `number` | `3` |
+| `readOnly` | `boolean` | `false` |
+
+`fs.readOnly` exposes the flag back. When `true`, every mutating method (`writeFile`, `mkdir`, `rm`, `rmdir`, `mv`, `cp`, `renameNode`, `mkdirUnder`, `rmById`, `rmDirById`, `mvNode`, `cpNode`) throws `Error("filesystem is read-only")` instead of touching the DB; read methods (`ls`, `readFile`, `stat`, `exists`, `du`, `lsById`, `downloadFile`, `downloadDir`) are unaffected. `FileTree` reads this flag itself and hides every mutating control (New folder, Paste, Rename, Delete, drag-to-move, OS drag/paste upload) when the `fs` it's given is read-only.
 
 ---
 
@@ -245,10 +248,12 @@ import { FileTree } from './src/ui/FileTree';
 - Right-click for context menu: New folder (dirs), Paste (dirs, when the clipboard has entries), Copy, Rename, Download (when files are selected), Delete
 - Drag a node onto a directory to move it
 - Drag files from the OS onto the tree, or paste an image, to upload into `cwd` — reported via `onUploaded`
-- `Filter ▾` menu — toggle "Show hidden files" (dotfiles, off by default) and "Show gitignored files" (off by default, matched against every `.gitignore` found under `/`)
+- `Filter ▾` menu — toggle "Show hidden files" (dotfiles, off by default) and "Show gitignored files" (off by default, matched against every `.gitignore` found under `/`). Sits in a top bar with `toolbar`, to `toolbar`'s left.
+- If `fs.readOnly` is `true`, every mutating control above (New folder, Paste, Rename, Delete, drag-to-move, OS drag/paste upload) is hidden — browsing, Copy, and Download still work
 - `refreshKey` — increment after any filesystem mutation to reload expanded directories
-- `toolbar` — optional `ReactNode` rendered above the tree
-- `renderContextMenuExtra(entry, close)` — inject extra context-menu items (used by GitHub sync's per-folder actions)
+- `features?: Feature[]` — currently `Feature = "github"`; defaults to `["github"]`. Drop `"github"` from the array to hide `toolbar` and `renderContextMenuExtra` regardless of what's passed in — a runtime kill switch for the GitHub-sync UI hooks below, for consumers that wire up sync but want to toggle it off without unmounting
+- `toolbar` — optional `ReactNode` rendered next to the `Filter ▾` button (only shown when `features` includes `"github"`)
+- `renderContextMenuExtra(entry, close)` — inject extra context-menu items (used by GitHub sync's per-folder actions; only invoked when `features` includes `"github"`)
 
 OS file drop and clipboard image paste are built in — both `FileTree` and `Terminal` accept an `onUploaded?: (names: string[]) => void` prop and handle drag/paste internally.
 
