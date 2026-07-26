@@ -13,15 +13,15 @@ npm install @octalgia/idbfs
 ```
 
 ```ts
-import { connectIdbfs, FileTree, Terminal } from '@octalgia/idbfs';
-import '@octalgia/idbfs/style.css'; // required for the React components
+import { connectIdbfs, FileTree, Terminal } from "@octalgia/idbfs";
+import "@octalgia/idbfs/style.css"; // required for the React components
 ```
 
 To run this repo's demo app locally:
 
 ```sh
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 ---
@@ -31,12 +31,36 @@ npm run dev
 All exports come from the package root (in this repo, `src/lib`):
 
 ```ts
-import { connectIdbfs, Idbfs, complete, buildIgnoreMatcher, mimeFromName, ROOT_ID, FileTree, Terminal, runCommand, fileIconColor } from '@octalgia/idbfs';
+import {
+  connectIdbfs,
+  Idbfs,
+  complete,
+  buildIgnoreMatcher,
+  mimeFromName,
+  ROOT_ID,
+  FileTree,
+  Terminal,
+  runCommand,
+  fileIconColor,
+} from "@octalgia/idbfs";
 import type {
-  Entry, FileEntry, DirEntry, ListEntry, EntryType, IdbfsOptions, DirStats,
-  FsEvent, FsEventType, CompletionResult, IgnoreMatcher, Feature,
-  Segment, OutputLine, CommandResult, ExtraCommand,
-} from '@octalgia/idbfs';
+  Entry,
+  FileEntry,
+  DirEntry,
+  ListEntry,
+  EntryType,
+  IdbfsOptions,
+  DirStats,
+  FsEvent,
+  FsEventType,
+  CompletionResult,
+  IgnoreMatcher,
+  Feature,
+  Segment,
+  OutputLine,
+  CommandResult,
+  ExtraCommand,
+} from "@octalgia/idbfs";
 ```
 
 ---
@@ -44,14 +68,14 @@ import type {
 ### `connectIdbfs(options?)`
 
 ```ts
-const fs = await connectIdbfs({ dbName: 'myapp' });
+const fs = await connectIdbfs({ dbName: "myapp" });
 ```
 
-| Option | Type | Default |
-|--------|------|---------|
-| `dbName` | `string` | `'idbfs'` |
-| `dbVersion` | `number` | `3` |
-| `readOnly` | `boolean` | `false` |
+| Option      | Type      | Default   |
+| ----------- | --------- | --------- |
+| `dbName`    | `string`  | `'idbfs'` |
+| `dbVersion` | `number`  | `3`       |
+| `readOnly`  | `boolean` | `false`   |
 
 `fs.readOnly` exposes the flag back. When `true`, every mutating method (`writeFile`, `mkdir`, `rm`, `rmdir`, `mv`, `cp`, `renameNode`, `mkdirUnder`, `rmById`, `rmDirById`, `mvNode`, `cpNode`) throws `Error("filesystem is read-only")` instead of touching the DB; read methods (`ls`, `readFile`, `stat`, `exists`, `du`, `lsById`, `downloadFile`, `downloadDir`) are unaffected. `FileTree` reads this flag itself and hides every mutating control (New folder, Paste, Rename, Delete, drag-to-move, OS drag/paste upload) when the `fs` it's given is read-only.
 
@@ -68,15 +92,15 @@ All path methods accept an optional `cwd` (default `'/'`) for resolving relative
 Write a file. Creates parent directories as needed. Overwrites if the file exists.
 
 ```ts
-await fs.writeFile('/docs/hello.txt', 'hello world');
-await fs.writeFile('/img/photo.png', arrayBuffer);
-await fs.writeFile('notes.txt', 'hi', '/docs');
+await fs.writeFile("/docs/hello.txt", "hello world");
+await fs.writeFile("/img/photo.png", arrayBuffer);
+await fs.writeFile("notes.txt", "hi", "/docs");
 ```
 
 #### `fs.readFile(path, cwd?)` → `FileEntry`
 
 ```ts
-const file = await fs.readFile('/docs/hello.txt');
+const file = await fs.readFile("/docs/hello.txt");
 const text = new TextDecoder().decode(file.data);
 ```
 
@@ -87,7 +111,7 @@ const text = new TextDecoder().decode(file.data);
 Sorted directories-first then alphabetically.
 
 ```ts
-const entries = await fs.ls('/docs');
+const entries = await fs.ls("/docs");
 ```
 
 `ListEntry`: `{ id, name, path, type, size, modifiedAt }`
@@ -109,9 +133,9 @@ Remove an empty directory. Throws if it has contents.
 Move or rename a file or directory. If `dest` is an existing directory, source moves into it. Creates parent dirs of `dest` as needed. If `dest` resolves to an existing **file**, it is silently overwritten (unlike `cp`, which errors). Moving a directory is O(1) — only its node is updated.
 
 ```ts
-await fs.mv('draft.txt', 'final.txt');
-await fs.mv('photo.png', '/archive');          // → /archive/photo.png
-await fs.mv('/old-dir', '/new-dir');
+await fs.mv("draft.txt", "final.txt");
+await fs.mv("photo.png", "/archive"); // → /archive/photo.png
+await fs.mv("/old-dir", "/new-dir");
 ```
 
 #### `fs.cp(src, dest, cwd?)`
@@ -133,14 +157,14 @@ Normalise a path string without touching the DB.
 Watch a directory for filesystem events. Returns an unsubscribe function.
 
 ```ts
-const unlisten = fs.listen('/uploads', (event: FsEvent) => {
+const unlisten = fs.listen("/uploads", (event: FsEvent) => {
   console.log(event.type, event.path, event.oldPath);
 });
 
-await fs.writeFile('/uploads/photo.jpg', buf);
+await fs.writeFile("/uploads/photo.jpg", buf);
 // → { type: 'write', path: '/uploads/photo.jpg' }
 
-await fs.mv('/uploads/photo.jpg', '/archive/');
+await fs.mv("/uploads/photo.jpg", "/archive/");
 // → { type: 'move', path: '/archive/photo.jpg', oldPath: '/uploads/photo.jpg' }
 
 unlisten(); // stop watching
@@ -148,14 +172,14 @@ unlisten(); // stop watching
 
 `FsEvent`: `{ type: FsEventType, path: string, oldPath?: string }`
 
-| `FsEventType` | Trigger |
-|---|---|
-| `write` | `writeFile` — file created or overwritten |
-| `delete` | `rm`, `rmById` — file deleted |
-| `mkdir` | `mkdir`, `mkdirUnder` — directory created (one event per new segment) |
-| `rmdir` | `rmdir`, `rmDirById` — directory deleted |
-| `move` | `mv`, `mvNode`, `renameNode` — node moved or renamed; `oldPath` is the previous path |
-| `copy` | `cp`, `cpNode` — node copied; `oldPath` is the source path |
+| `FsEventType` | Trigger                                                                              |
+| ------------- | ------------------------------------------------------------------------------------ |
+| `write`       | `writeFile` — file created or overwritten                                            |
+| `delete`      | `rm`, `rmById` — file deleted                                                        |
+| `mkdir`       | `mkdir`, `mkdirUnder` — directory created (one event per new segment)                |
+| `rmdir`       | `rmdir`, `rmDirById` — directory deleted                                             |
+| `move`        | `mv`, `mvNode`, `renameNode` — node moved or renamed; `oldPath` is the previous path |
+| `copy`        | `cp`, `cpNode` — node copied; `oldPath` is the source path                           |
 
 Listening on `'/'` receives all events. Listeners match the watched path itself and any path beneath it. Listener errors are caught and isolated.
 
@@ -166,7 +190,7 @@ Listening on `'/'` receives all events. Listeners match the watched path itself 
 Trigger a browser download for a single file.
 
 ```ts
-await fs.downloadFile('/docs/hello.txt');
+await fs.downloadFile("/docs/hello.txt");
 ```
 
 #### `fs.downloadDir(path?, cwd?)`
@@ -174,7 +198,7 @@ await fs.downloadFile('/docs/hello.txt');
 Trigger a browser download for every file in a directory (recursively). One download per file — no zip. Browsers may prompt to allow multiple downloads for the site.
 
 ```ts
-await fs.downloadDir('/uploads');
+await fs.downloadDir("/uploads");
 await fs.downloadDir(); // entire filesystem
 ```
 
@@ -185,7 +209,7 @@ await fs.downloadDir(); // entire filesystem
 Recursive file count and size.
 
 ```ts
-const { files, size, dirs } = await fs.du('/docs');
+const { files, size, dirs } = await fs.du("/docs");
 ```
 
 `DirStats`: `{ path, files, size, dirs: DirStats[] }`
@@ -196,15 +220,15 @@ const { files, size, dirs } = await fs.du('/docs');
 
 Use these when you already have a node ID (e.g. from the file tree). No path resolution overhead.
 
-| Method | Description |
-|--------|-------------|
-| `fs.lsById(nodeId)` | List children of a directory node |
-| `fs.renameNode(nodeId, newName)` | Rename a node in place |
-| `fs.mkdirUnder(parentId, name)` | Create a directory under a parent node |
-| `fs.rmById(nodeId)` | Delete a file node |
-| `fs.rmDirById(nodeId)` | Delete an empty directory node |
-| `fs.mvNode(srcId, destParentId, newName?)` | Move a node to a new parent |
-| `fs.cpNode(srcId, destParentId, newName?)` | Copy a node to a new parent |
+| Method                                     | Description                            |
+| ------------------------------------------ | -------------------------------------- |
+| `fs.lsById(nodeId)`                        | List children of a directory node      |
+| `fs.renameNode(nodeId, newName)`           | Rename a node in place                 |
+| `fs.mkdirUnder(parentId, name)`            | Create a directory under a parent node |
+| `fs.rmById(nodeId)`                        | Delete a file node                     |
+| `fs.rmDirById(nodeId)`                     | Delete an empty directory node         |
+| `fs.mvNode(srcId, destParentId, newName?)` | Move a node to a new parent            |
+| `fs.cpNode(srcId, destParentId, newName?)` | Copy a node to a new parent            |
 
 `ROOT_ID` is the fixed string ID of the root node (`"root"`).
 
@@ -215,8 +239,8 @@ Use these when you already have a node ID (e.g. from the file tree). No path res
 Tab completion for terminal UIs. Completes command names on the first token, filesystem entries on subsequent tokens and on paths starting with `/`, `./`, or `..`.
 
 ```ts
-const result = await complete('ls doc', '/', fs);
-result.value;      // 'ls docs/'  — replacement string (null if ambiguous)
+const result = await complete("ls doc", "/", fs);
+result.value; // 'ls docs/'  — replacement string (null if ambiguous)
 result.candidates; // ['docs']    — all matches
 ```
 
@@ -227,8 +251,8 @@ result.candidates; // ['docs']    — all matches
 Async — builds a single predicate `IgnoreMatcher = (relPath, isDir) => boolean` from every `.gitignore` found under `rootPath`, cascaded per real git semantics (deeper rules layer on top of shallower ones, including negations). `relPath` is relative to `rootPath`. Used internally by `FileTree`'s "Show gitignored files" filter.
 
 ```ts
-const isIgnored = await buildIgnoreMatcher(fs, '/');
-isIgnored('node_modules', true); // true if a .gitignore says so
+const isIgnored = await buildIgnoreMatcher(fs, "/");
+isIgnored("node_modules", true); // true if a .gitignore says so
 ```
 
 ---
@@ -248,9 +272,9 @@ SVG path data (16×16 viewBox) and hex color for a file or directory icon, keyed
 ### `FileTree`
 
 ```tsx
-import { FileTree } from '@octalgia/idbfs';
+import { FileTree } from "@octalgia/idbfs";
 
-<FileTree fs={fs} refreshKey={n} cwd={cwd} onUploaded={(names) => console.log(names)} />
+<FileTree fs={fs} refreshKey={n} cwd={cwd} onUploaded={(names) => console.log(names)} />;
 ```
 
 - Expand/collapse directories via the `▶`/`▼` chevron
@@ -277,12 +301,12 @@ OS file drop and clipboard image paste are built in — both `FileTree` and `Ter
 A controlled component: it renders output blocks and an input line, but owns no command state — you keep `lines`/`history` in your app, run each submitted command through `runCommand`, and append the result. `src/App.tsx` is the reference wiring.
 
 ```tsx
-import { Terminal, runCommand } from '@octalgia/idbfs';
-import type { OutputLine } from '@octalgia/idbfs';
+import { Terminal, runCommand } from "@octalgia/idbfs";
+import type { OutputLine } from "@octalgia/idbfs";
 
 const [lines, setLines] = useState<Array<{ prompt?: string; output: OutputLine[] }>>([]);
 const [history, setHistory] = useState<string[]>([]);
-const [cwd, setCwd] = useState('/');
+const [cwd, setCwd] = useState("/");
 
 async function handleSubmit(cmd: string) {
   setHistory((h) => [...h, cmd]);
@@ -291,22 +315,29 @@ async function handleSubmit(cmd: string) {
   if (result.newCwd) setCwd(result.newCwd);
 }
 
-<Terminal lines={lines} cwd={cwd} fs={fs} history={history}
-          onSubmit={handleSubmit}
-          onCompletions={(candidates) => {/* echo ambiguous tab matches */}} />
+<Terminal
+  lines={lines}
+  cwd={cwd}
+  fs={fs}
+  history={history}
+  onSubmit={handleSubmit}
+  onCompletions={(candidates) => {
+    /* echo ambiguous tab matches */
+  }}
+/>;
 ```
 
-| Prop | Type | Description |
-|------|------|-------------|
-| `lines` | `Array<{ prompt?: string; output: OutputLine[] }>` | Transcript to render, in order |
-| `cwd` | `string` | Current directory shown at the prompt and used for completion/upload |
-| `fs` | `Idbfs` | Filesystem for tab completion and drag/paste uploads |
-| `history` | `string[]` | Commands recalled with the arrow keys |
-| `onSubmit` | `(cmd: string) => void` | Fired when the user presses Enter |
-| `onCompletions` | `(candidates: string[]) => void` | Fired when Tab finds multiple matches — echo them however you like |
-| `onUploaded?` | `(names: string[]) => void` | Files landed via OS drag/drop or image paste (uploaded into `cwd`) |
-| `theme?` | `'light' \| 'dark'` | Colour scheme, default `'dark'` |
-| `statusLine?` | `ReactNode` | Rendered between the output and the input line (used by GitHub sync's progress line) |
+| Prop            | Type                                               | Description                                                                          |
+| --------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `lines`         | `Array<{ prompt?: string; output: OutputLine[] }>` | Transcript to render, in order                                                       |
+| `cwd`           | `string`                                           | Current directory shown at the prompt and used for completion/upload                 |
+| `fs`            | `Idbfs`                                            | Filesystem for tab completion and drag/paste uploads                                 |
+| `history`       | `string[]`                                         | Commands recalled with the arrow keys                                                |
+| `onSubmit`      | `(cmd: string) => void`                            | Fired when the user presses Enter                                                    |
+| `onCompletions` | `(candidates: string[]) => void`                   | Fired when Tab finds multiple matches — echo them however you like                   |
+| `onUploaded?`   | `(names: string[]) => void`                        | Files landed via OS drag/drop or image paste (uploaded into `cwd`)                   |
+| `theme?`        | `'light' \| 'dark'`                                | Colour scheme, default `'dark'`                                                      |
+| `statusLine?`   | `ReactNode`                                        | Rendered between the output and the input line (used by GitHub sync's progress line) |
 
 Note: `clear` is not handled by `runCommand` — intercept it in `onSubmit` and reset `lines` yourself (see `src/App.tsx`).
 
@@ -317,7 +348,7 @@ Note: `clear` is not handled by `runCommand` — intercept it in `onSubmit` and 
 The command interpreter behind `Terminal`. Parses one command line and executes it against `fs`.
 
 ```ts
-const result = await runCommand('ls -a /docs', '/', fs);
+const result = await runCommand("ls -a /docs", "/", fs);
 result.output; // OutputLine[] to render
 result.newCwd; // set when the command was `cd`
 ```
@@ -333,22 +364,22 @@ Built-in commands are listed under [Terminal commands](#terminal-commands).
 
 ## Terminal commands
 
-| Command | Description |
-|---------|-------------|
-| `ls [-a] [path]` | List directory (dotfiles hidden unless `-a`) |
-| `cd [path]` | Change directory (persisted across reloads) |
-| `mkdir <path>` | Create directory |
-| `rm <file>` | Remove file |
-| `rmdir <dir>` | Remove empty directory |
-| `mv <src> <dst>` | Move or rename file or directory |
-| `cp <src> <dst>` | Copy file or directory |
-| `du [path]` | Show disk usage recursively |
-| `view <file>` | Display image, play audio, or show text |
-| `./file` or `/path` | Shorthand for `view` |
-| `stat <path>` | Show file metadata |
-| `pwd` | Print working directory |
-| `clear` | Clear terminal |
-| `help` | List commands |
+| Command             | Description                                  |
+| ------------------- | -------------------------------------------- |
+| `ls [-a] [path]`    | List directory (dotfiles hidden unless `-a`) |
+| `cd [path]`         | Change directory (persisted across reloads)  |
+| `mkdir <path>`      | Create directory                             |
+| `rm <file>`         | Remove file                                  |
+| `rmdir <dir>`       | Remove empty directory                       |
+| `mv <src> <dst>`    | Move or rename file or directory             |
+| `cp <src> <dst>`    | Copy file or directory                       |
+| `du [path]`         | Show disk usage recursively                  |
+| `view <file>`       | Display image, play audio, or show text      |
+| `./file` or `/path` | Shorthand for `view`                         |
+| `stat <path>`       | Show file metadata                           |
+| `pwd`               | Print working directory                      |
+| `clear`             | Clear terminal                               |
+| `help`              | List commands                                |
 
 Tab completes commands and paths (including `./` and `../`). Arrow keys navigate history. Ctrl+U clears the input. Click anywhere to focus the prompt.
 
@@ -386,18 +417,20 @@ Auth is a Personal Access Token pasted by the user, stored in `localStorage`. Th
 ## Development
 
 ```sh
-npm run dev        # start dev server
-npm run build      # production build (vite + lib .d.ts)
-npm run preview    # serve the production build
-npm run test       # run tests (watch mode)
-npm run test:run   # run tests once (CI)
-npm run test:ui    # vitest UI
-npm run lint       # oxlint
-npm run fmt        # format with oxfmt
-npm run fmt:check  # check formatting (CI)
+pnpm run dev        # start dev server
+pnpm run build      # production build (vite + lib .d.ts)
+pnpm run preview    # serve the production build
+pnpm run test       # run tests (watch mode)
+pnpm run test:run   # run tests once (CI)
+pnpm run test:ui    # vitest UI
+pnpm run lint       # oxlint
+pnpm run fmt        # format with oxfmt
+pnpm run fmt:check  # check formatting (CI)
 ```
 
-Releases: `npm run release:patch|minor|major` bumps the version and publishes; `prepublishOnly` runs lint, tests, and the build first.
+Every PR is built and tested by CI (`.github/workflows/ci.yml`), and its title is checked against [Conventional Commits](https://www.conventionalcommits.org/) (`.github/workflows/pr-title.yml`) since squash-merging turns that title into the commit message on `master`.
+
+Releases are automatic: on every push to `master`, `.github/workflows/release.yml` runs [semantic-release](https://semantic-release.gitbook.io/), which inspects the commits since the last release, picks the next version from their type (`fix:` → patch, `feat:` → minor, a `BREAKING CHANGE:` footer or `!` → major), then publishes to npm and creates a GitHub release. Version numbers are never bumped by hand.
 
 ---
 
