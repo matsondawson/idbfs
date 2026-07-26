@@ -55,12 +55,16 @@ jobs:
         with:
           node-version: 22
 
+      # npm >= 11.5.1 is required for OIDC trusted publishing; Node 22
+      # bundles npm 10.
+      - run: npm install -g npm@latest
+
       # Runs against the already-built, already-tested dist/ from the build
       # job above. Deliberately does not `pnpm install` this repo's own
-      # dependency tree here — this job is the one holding NPM_TOKEN and a
-      # write-scoped GITHUB_TOKEN, and dlx only fetches semantic-release
-      # itself plus its default plugins, not our full devDependency graph.
+      # dependency tree here — this job is the one holding a write-scoped
+      # GITHUB_TOKEN, and dlx only fetches semantic-release itself plus its
+      # default plugins, not our full devDependency graph. npm auth is OIDC
+      # trusted publishing (id-token: write above) — no NPM_TOKEN.
       - run: pnpm dlx semantic-release@25
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
