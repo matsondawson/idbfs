@@ -4,30 +4,25 @@
   "private": false,
   "description": "A browser filesystem backed by IndexedDB.",
   "keywords": [
-    "indexeddb",
-    "filesystem",
     "browser",
+    "filesystem",
+    "indexeddb",
     "react"
   ],
-  "author": "Matt Dawson",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/matsondawson/idbfs.git"
-  },
   "homepage": "https://github.com/matsondawson/idbfs#readme",
   "bugs": {
     "url": "https://github.com/matsondawson/idbfs/issues"
   },
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
+  "license": "MIT",
+  "author": "Matt Dawson",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matsondawson/idbfs.git"
   },
   "files": [
     "dist"
   ],
   "type": "module",
-  "packageManager": "pnpm@11.1.2",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/lib/index.d.ts",
@@ -39,6 +34,10 @@
     },
     "./style.css": "./dist/index.css"
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build && tsc -p tsconfig.lib.json",
@@ -48,33 +47,35 @@
     "preview": "vite preview",
     "test": "NODE_OPTIONS=--no-experimental-webstorage vitest",
     "test:run": "NODE_OPTIONS=--no-experimental-webstorage vitest run",
-    "test:ui": "NODE_OPTIONS=--no-experimental-webstorage vitest --ui"
+    "test:ui": "NODE_OPTIONS=--no-experimental-webstorage vitest --ui",
+    "update": "pnpx npm-check-updates -i --format group"
+  },
+  "dependencies": {
+    "@octokit/rest": "^22.0.1",
+    "ignore": "^7.0.6"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^24.12.2",
-    "@types/react": "^19.2.14",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "@vitest/ui": "^4.1.5",
+    "@vitejs/plugin-react": "^6.0.4",
+    "@vitest/ui": "^4.1.10",
     "fake-indexeddb": "^6.2.5",
-    "jsdom": "^29.1.0",
-    "oxfmt": "^0.47.0",
-    "oxlint": "^1.62.0",
+    "jsdom": "^29.1.1",
+    "oxfmt": "^0.60.0",
+    "oxlint": "^1.75.0",
     "react": "^19.2.8",
-    "semantic-release": "^25.0.8",
     "react-dom": "^19.2.8",
-    "typescript": "~6.0.2",
-    "vite": "^8.0.10",
-    "vitest": "^4.1.5"
+    "semantic-release": "^25.0.8",
+    "typescript": "~6.0.3",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
   },
   "peerDependencies": {
     "react": ">=19",
     "react-dom": ">=19"
   },
-  "dependencies": {
-    "@octokit/rest": "^22.0.1",
-    "ignore": "^7.0.6"
-  }
+  "packageManager": "pnpm@11.17.0"
 }
