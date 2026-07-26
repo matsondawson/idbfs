@@ -23,7 +23,7 @@ interface Resolved {
   config: SyncConfig;
 }
 
-interface Props {
+export interface GhContextMenuItemsProps {
   fs: Idbfs;
   entry: ListEntry;
   onChanged?: () => void;
@@ -54,7 +54,7 @@ function requireToken(): string | null {
  * the tree, scoped to that folder's own nearest `.githubsync.json` — not a
  * single global repo. Each node can be configured against a different repo.
  */
-export function GhContextMenuItems({ fs, entry, onChanged, close }: Props) {
+export function GhContextMenuItems({ fs, entry, onChanged, close }: GhContextMenuItemsProps) {
   const [resolved, setResolved] = useState<Resolved | null | undefined>(undefined);
 
   useEffect(() => {
