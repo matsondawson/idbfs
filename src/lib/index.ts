@@ -21,4 +21,4 @@ export type { Feature } from "../ui/FileTree";
 export { Terminal } from "../ui/Terminal";
 export { fileIconColor } from "../ui/icons";
 export { runCommand } from "../commands/index";
-export type { Segment, OutputLine, CommandResult } from "../commands/index";
+export type { Segment, OutputLine, CommandResult, ExtraCommand } from "../commands/index";

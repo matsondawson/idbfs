@@ -23,6 +23,7 @@ const FEATURES: Feature[] = ["github"];
 
 export default function App() {
   const [ready, setReady] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
   const [cwd, setCwd] = useState("/");
   const [history, setHistory] = useState<string[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -33,14 +34,18 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    connectIdbfs().then(async (connected) => {
-      fs = connected;
-      const saved = localStorage.getItem(CWD_KEY);
-      if (saved && saved !== "/" && (await fs.exists(saved))) {
-        setCwd(saved);
-      }
-      setReady(true);
-    });
+    connectIdbfs()
+      .then(async (connected) => {
+        fs = connected;
+        const saved = localStorage.getItem(CWD_KEY);
+        if (saved && saved !== "/" && (await fs.exists(saved))) {
+          setCwd(saved);
+        }
+        setReady(true);
+      })
+      .catch((err: unknown) => {
+        setInitError(err instanceof Error ? err.message : String(err));
+      });
   }, []);
 
   const pushLines = useCallback((blocks: Block[]) => {
@@ -97,6 +102,14 @@ export default function App() {
     },
     [pushLines],
   );
+
+  if (initError) {
+    return (
+      <div style={rootStyle}>
+        <span style={{ color: "#f38ba8" }}>failed to open idbfs: {initError}</span>
+      </div>
+    );
+  }
 
   if (!ready) {
     return (

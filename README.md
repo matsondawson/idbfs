@@ -6,28 +6,18 @@ A browser filesystem backed by IndexedDB. Licensed under MIT.
 
 ---
 
-## Storage model
-
-Each file or directory is a **node** stored as its own IndexedDB record in a store named `filenode`. A node contains only its own name — full paths are computed on demand by walking parent references. The root node has the fixed ID `"root"`.
-
-```
-Node {
-  id:         string        // UUID, keyPath
-  name:       string        // own name only, no slashes
-  parentId:   string | null // null = root
-  type:       'file' | 'dir'
-  data?:      ArrayBuffer   // files only
-  size:       number
-  createdAt:  number        // ms
-  modifiedAt: number        // ms
-}
-```
-
-The single index is on `parentId`. Path strings are accepted as input to the API and resolved to node IDs by walking the tree segment by segment. The `path` field on returned entries is computed, not stored.
-
----
-
 ## Installation
+
+```sh
+npm install @octalgia/idbfs
+```
+
+```ts
+import { connectIdbfs, FileTree, Terminal } from '@octalgia/idbfs';
+import '@octalgia/idbfs/style.css'; // required for the React components
+```
+
+To run this repo's demo app locally:
 
 ```sh
 npm install
@@ -38,11 +28,15 @@ npm run dev
 
 ## API
 
-All exports from `src/lib`:
+All exports come from the package root (in this repo, `src/lib`):
 
 ```ts
-import { connectIdbfs, complete, ROOT_ID } from './src/lib';
-import type { FileEntry, ListEntry, Entry, DirStats, CompletionResult, FsEvent, FsEventType } from './src/lib';
+import { connectIdbfs, Idbfs, complete, buildIgnoreMatcher, mimeFromName, ROOT_ID, FileTree, Terminal, runCommand, fileIconColor } from '@octalgia/idbfs';
+import type {
+  Entry, FileEntry, DirEntry, ListEntry, EntryType, IdbfsOptions, DirStats,
+  FsEvent, FsEventType, CompletionResult, IgnoreMatcher, Feature,
+  Segment, OutputLine, CommandResult, ExtraCommand,
+} from '@octalgia/idbfs';
 ```
 
 ---
@@ -60,6 +54,8 @@ const fs = await connectIdbfs({ dbName: 'myapp' });
 | `readOnly` | `boolean` | `false` |
 
 `fs.readOnly` exposes the flag back. When `true`, every mutating method (`writeFile`, `mkdir`, `rm`, `rmdir`, `mv`, `cp`, `renameNode`, `mkdirUnder`, `rmById`, `rmDirById`, `mvNode`, `cpNode`) throws `Error("filesystem is read-only")` instead of touching the DB; read methods (`ls`, `readFile`, `stat`, `exists`, `du`, `lsById`, `downloadFile`, `downloadDir`) are unaffected. `FileTree` reads this flag itself and hides every mutating control (New folder, Paste, Rename, Delete, drag-to-move, OS drag/paste upload) when the `fs` it's given is read-only.
+
+`connectIdbfs()`/`new Idbfs().init()` rejects instead of hanging if the browser won't cooperate: no `IndexedDB` global at all (private browsing, disabled site data, an unsupported browser) rejects immediately with a descriptive error, and an open request left pending because another tab holds an older DB version open (`indexedDB`'s `blocked` event) rejects rather than waiting forever for that tab to close. Always `.catch()` `connectIdbfs()` — the demo (`src/App.tsx`) shows this state instead of sitting on "initializing…" indefinitely.
 
 ---
 
@@ -110,7 +106,7 @@ Remove an empty directory. Throws if it has contents.
 
 #### `fs.mv(src, dest, cwd?)`
 
-Move or rename a file or directory. If `dest` is an existing directory, source moves into it. Creates parent dirs of `dest` as needed. Moving a directory is O(1) — only its node is updated.
+Move or rename a file or directory. If `dest` is an existing directory, source moves into it. Creates parent dirs of `dest` as needed. If `dest` resolves to an existing **file**, it is silently overwritten (unlike `cp`, which errors). Moving a directory is O(1) — only its node is updated.
 
 ```ts
 await fs.mv('draft.txt', 'final.txt');
@@ -226,9 +222,24 @@ result.candidates; // ['docs']    — all matches
 
 ---
 
-### `buildIgnoreMatcher(fs, rootPath)` → `IgnoreMatcher`
+### `buildIgnoreMatcher(fs, rootPath)` → `Promise<IgnoreMatcher>`
 
-Builds a single predicate `(relPath, isDir) => boolean` from every `.gitignore` found under `rootPath`, cascaded per real git semantics (deeper rules layer on top of shallower ones, including negations). `relPath` is relative to `rootPath`. Used internally by `FileTree`'s "Show gitignored files" filter.
+Async — builds a single predicate `IgnoreMatcher = (relPath, isDir) => boolean` from every `.gitignore` found under `rootPath`, cascaded per real git semantics (deeper rules layer on top of shallower ones, including negations). `relPath` is relative to `rootPath`. Used internally by `FileTree`'s "Show gitignored files" filter.
+
+```ts
+const isIgnored = await buildIgnoreMatcher(fs, '/');
+isIgnored('node_modules', true); // true if a .gitignore says so
+```
+
+---
+
+### `mimeFromName(name)` → `string`
+
+MIME type from a filename's extension (e.g. `'photo.png'` → `'image/png'`). Known dotfiles (`.gitignore`, `.env`, …) map to `'text/plain'`; anything unrecognised falls back to `'application/octet-stream'`. Used by `view`, previews, and uploads.
+
+### `fileIconColor(name, type)` → `{ path, color }`
+
+SVG path data (16×16 viewBox) and hex color for a file or directory icon, keyed off extension. What `FileTree` and the terminal's `ls` use for their icons.
 
 ---
 
@@ -237,7 +248,7 @@ Builds a single predicate `(relPath, isDir) => boolean` from every `.gitignore` 
 ### `FileTree`
 
 ```tsx
-import { FileTree } from './src/ui/FileTree';
+import { FileTree } from '@octalgia/idbfs';
 
 <FileTree fs={fs} refreshKey={n} cwd={cwd} onUploaded={(names) => console.log(names)} />
 ```
@@ -246,16 +257,77 @@ import { FileTree } from './src/ui/FileTree';
 - Click a file to preview (image, audio, or text) in the panel below the tree
 - Double-click any node to rename inline
 - Right-click for context menu: New folder (dirs), Paste (dirs, when the clipboard has entries), Copy, Rename, Download (when files are selected), Delete
+- Keyboard (when the tree has focus): Ctrl/Cmd+C copies selected nodes, Ctrl/Cmd+V pastes (copied nodes, clipboard text as a new file, or a clipboard image), Delete deletes the selection. Shift-click and Ctrl/Cmd-click extend the selection.
 - Drag a node onto a directory to move it
 - Drag files from the OS onto the tree, or paste an image, to upload into `cwd` — reported via `onUploaded`
 - `Filter ▾` menu — toggle "Show hidden files" (dotfiles, off by default) and "Show gitignored files" (off by default, matched against every `.gitignore` found under `/`). Sits in a top bar with `toolbar`, to `toolbar`'s left.
 - If `fs.readOnly` is `true`, every mutating control above (New folder, Paste, Rename, Delete, drag-to-move, OS drag/paste upload) is hidden — browsing, Copy, and Download still work
 - `refreshKey` — increment after any filesystem mutation to reload expanded directories
+- `theme?: 'light' | 'dark'` — colour scheme, default `'dark'`
 - `features?: Feature[]` — currently `Feature = "github"`; defaults to `["github"]`. Drop `"github"` from the array to hide `toolbar` and `renderContextMenuExtra` regardless of what's passed in — a runtime kill switch for the GitHub-sync UI hooks below, for consumers that wire up sync but want to toggle it off without unmounting
 - `toolbar` — optional `ReactNode` rendered next to the `Filter ▾` button (only shown when `features` includes `"github"`)
 - `renderContextMenuExtra(entry, close)` — inject extra context-menu items (used by GitHub sync's per-folder actions; only invoked when `features` includes `"github"`)
 
 OS file drop and clipboard image paste are built in — both `FileTree` and `Terminal` accept an `onUploaded?: (names: string[]) => void` prop and handle drag/paste internally.
+
+---
+
+### `Terminal`
+
+A controlled component: it renders output blocks and an input line, but owns no command state — you keep `lines`/`history` in your app, run each submitted command through `runCommand`, and append the result. `src/App.tsx` is the reference wiring.
+
+```tsx
+import { Terminal, runCommand } from '@octalgia/idbfs';
+import type { OutputLine } from '@octalgia/idbfs';
+
+const [lines, setLines] = useState<Array<{ prompt?: string; output: OutputLine[] }>>([]);
+const [history, setHistory] = useState<string[]>([]);
+const [cwd, setCwd] = useState('/');
+
+async function handleSubmit(cmd: string) {
+  setHistory((h) => [...h, cmd]);
+  const result = await runCommand(cmd, cwd, fs);
+  setLines((prev) => [...prev, { prompt: `${cwd} $ ${cmd}`, output: result.output }]);
+  if (result.newCwd) setCwd(result.newCwd);
+}
+
+<Terminal lines={lines} cwd={cwd} fs={fs} history={history}
+          onSubmit={handleSubmit}
+          onCompletions={(candidates) => {/* echo ambiguous tab matches */}} />
+```
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `lines` | `Array<{ prompt?: string; output: OutputLine[] }>` | Transcript to render, in order |
+| `cwd` | `string` | Current directory shown at the prompt and used for completion/upload |
+| `fs` | `Idbfs` | Filesystem for tab completion and drag/paste uploads |
+| `history` | `string[]` | Commands recalled with the arrow keys |
+| `onSubmit` | `(cmd: string) => void` | Fired when the user presses Enter |
+| `onCompletions` | `(candidates: string[]) => void` | Fired when Tab finds multiple matches — echo them however you like |
+| `onUploaded?` | `(names: string[]) => void` | Files landed via OS drag/drop or image paste (uploaded into `cwd`) |
+| `theme?` | `'light' \| 'dark'` | Colour scheme, default `'dark'` |
+| `statusLine?` | `ReactNode` | Rendered between the output and the input line (used by GitHub sync's progress line) |
+
+Note: `clear` is not handled by `runCommand` — intercept it in `onSubmit` and reset `lines` yourself (see `src/App.tsx`).
+
+---
+
+### `runCommand(raw, cwd, fs, extra?)` → `Promise<CommandResult>`
+
+The command interpreter behind `Terminal`. Parses one command line and executes it against `fs`.
+
+```ts
+const result = await runCommand('ls -a /docs', '/', fs);
+result.output; // OutputLine[] to render
+result.newCwd; // set when the command was `cd`
+```
+
+- `CommandResult`: `{ output: OutputLine[]; newCwd?: string }`
+- `OutputLine`: `{ kind: 'text' | 'error', text }` | `{ kind: 'line', segments: Segment[] }` | `{ kind: 'image' | 'audio', url, name }`
+- `Segment`: `{ text: string; color?: string }`
+- `extra?: Record<string, ExtraCommand>` — custom commands keyed by name, checked before the built-ins. `ExtraCommand = (args: string[], cwd: string, fs: Idbfs) => Promise<CommandResult>`. This is how the demo wires `gh` in: `runCommand(cmd, cwd, fs, { gh: ghCommand })`. Extra commands are listed by `help`.
+
+Built-in commands are listed under [Terminal commands](#terminal-commands).
 
 ---
 
@@ -315,9 +387,35 @@ Auth is a Personal Access Token pasted by the user, stored in `localStorage`. Th
 
 ```sh
 npm run dev        # start dev server
-npm run build      # production build
-npm run test       # run tests
+npm run build      # production build (vite + lib .d.ts)
+npm run preview    # serve the production build
+npm run test       # run tests (watch mode)
+npm run test:run   # run tests once (CI)
+npm run test:ui    # vitest UI
 npm run lint       # oxlint
 npm run fmt        # format with oxfmt
 npm run fmt:check  # check formatting (CI)
 ```
+
+Releases: `npm run release:patch|minor|major` bumps the version and publishes; `prepublishOnly` runs lint, tests, and the build first.
+
+---
+
+## Storage model
+
+Each file or directory is a **node** stored as its own IndexedDB record in a store named `filenode`. A node contains only its own name — full paths are computed on demand by walking parent references. The root node has the fixed ID `"root"`.
+
+```
+Node {
+  id:         string        // UUID, keyPath
+  name:       string        // own name only, no slashes
+  parentId:   string | null // null = root
+  type:       'file' | 'dir'
+  data?:      ArrayBuffer   // files only
+  size:       number
+  createdAt:  number        // ms
+  modifiedAt: number        // ms
+}
+```
+
+The single index is on `parentId`. Path strings are accepted as input to the API and resolved to node IDs by walking the tree segment by segment. The `path` field on returned entries is computed, not stored.
