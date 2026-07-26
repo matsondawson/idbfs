@@ -10,6 +10,64 @@
   outline: none;
 }
 
+.idbfs-tree__topbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--idbfs-border-light);
+  padding: 4px;
+}
+
+.idbfs-tree__toolbar {
+  display: flex;
+  align-items: center;
+}
+
+.idbfs-tree__filterbar {
+  position: relative;
+}
+
+.idbfs-tree__filter-btn {
+  background: transparent;
+  border: 1px solid var(--idbfs-border);
+  border-radius: 4px;
+  color: var(--idbfs-text-muted);
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.idbfs-tree__filter-btn:hover {
+  background: var(--idbfs-surface-hover);
+  color: var(--idbfs-text);
+}
+
+.idbfs-tree__filter-menu {
+  position: absolute;
+  top: 100%;
+  right: 4px;
+  z-index: 1;
+  background: var(--idbfs-surface);
+  border: 1px solid var(--idbfs-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.idbfs-tree__filter-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--idbfs-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
 .idbfs-tree__list {
   flex: 1;
   overflow-y: auto;

@@ -1,9 +1,16 @@
 import { useEffect, useState, useCallback } from "react";
 import { connectIdbfs, Idbfs } from "./lib";
+import type { Feature } from "./lib";
 import { runCommand } from "./commands";
 import type { OutputLine } from "./commands";
 import { Terminal } from "./ui/Terminal";
 import { FileTree } from "./ui/FileTree";
+import { ghCommand } from "./github/commands";
+import { GhAuthButton } from "./github/GhAuthButton";
+import { GhContextMenuItems } from "./github/GhContextMenu";
+import { GhActivityIndicator } from "./github/GhActivityIndicator";
+import { GhTerminalStatusLine } from "./github/GhTerminalStatusLine";
+import { maskSensitiveCommand } from "./github/maskCommand";
 
 interface Block {
   prompt?: string;
@@ -12,9 +19,11 @@ interface Block {
 
 let fs: Idbfs;
 const CWD_KEY = "idbfs:cwd";
+const FEATURES: Feature[] = ["github"];
 
 export default function App() {
   const [ready, setReady] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
   const [cwd, setCwd] = useState("/");
   const [history, setHistory] = useState<string[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -25,14 +34,18 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    connectIdbfs().then(async (connected) => {
-      fs = connected;
-      const saved = localStorage.getItem(CWD_KEY);
-      if (saved && saved !== "/" && (await fs.exists(saved))) {
-        setCwd(saved);
-      }
-      setReady(true);
-    });
+    connectIdbfs()
+      .then(async (connected) => {
+        fs = connected;
+        const saved = localStorage.getItem(CWD_KEY);
+        if (saved && saved !== "/" && (await fs.exists(saved))) {
+          setCwd(saved);
+        }
+        setReady(true);
+      })
+      .catch((err: unknown) => {
+        setInitError(err instanceof Error ? err.message : String(err));
+      });
   }, []);
 
   const pushLines = useCallback((blocks: Block[]) => {
@@ -41,22 +54,31 @@ export default function App() {
 
   const handleCommand = useCallback(
     async (cmd: string) => {
-      const prompt = `${cwd} $ ${cmd}`;
+      // gh auth login takes a token as a plain argument — never echo it into
+      // the visible transcript or recallable history, only into execution
+      const displayCmd = maskSensitiveCommand(cmd);
+      const prompt = `${cwd} $ ${displayCmd}`;
       if (!cmd.trim()) {
         pushLines([{ prompt, output: [] }]);
         return;
       }
 
-      setHistory((h) => [...h, cmd]);
+      setHistory((h) => [...h, displayCmd]);
 
       if (cmd.trim() === "clear") {
         setLines([]);
         return;
       }
 
-      const result = await runCommand(cmd, cwd, fs);
+      // show the prompt immediately rather than waiting for the command to
+      // finish — matters for slow gh commands, where the status line below
+      // needs somewhere to sit while the command is still in flight
+      pushLines([{ prompt, output: [] }]);
 
-      pushLines([{ prompt, output: result.output }]);
+      const extra = FEATURES.includes("github") ? { gh: ghCommand } : undefined;
+      const result = await runCommand(cmd, cwd, fs, extra);
+
+      pushLines([{ output: result.output }]);
       if (result.newCwd) {
         setCwd(result.newCwd);
         localStorage.setItem(CWD_KEY, result.newCwd);
@@ -81,6 +103,14 @@ export default function App() {
     [pushLines],
   );
 
+  if (initError) {
+    return (
+      <div style={rootStyle}>
+        <span style={{ color: "#f38ba8" }}>failed to open idbfs: {initError}</span>
+      </div>
+    );
+  }
+
   if (!ready) {
     return (
       <div style={rootStyle}>
@@ -91,7 +121,27 @@ export default function App() {
 
   return (
     <div style={rootStyle}>
-      <FileTree fs={fs} refreshKey={refreshKey} cwd={cwd} onUploaded={handleUploaded} />
+      <FileTree
+        fs={fs}
+        refreshKey={refreshKey}
+        cwd={cwd}
+        onUploaded={handleUploaded}
+        features={FEATURES}
+        toolbar={
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <GhAuthButton />
+            <GhActivityIndicator />
+          </div>
+        }
+        renderContextMenuExtra={(entry, close) => (
+          <GhContextMenuItems
+            fs={fs}
+            entry={entry}
+            onChanged={() => setRefreshKey((k) => k + 1)}
+            close={close}
+          />
+        )}
+      />
       <Terminal
         lines={lines}
         cwd={cwd}
@@ -100,6 +150,7 @@ export default function App() {
         onSubmit={handleCommand}
         onCompletions={handleCompletions}
         onUploaded={handleUploaded}
+        statusLine={<GhTerminalStatusLine />}
       />
     </div>
   );

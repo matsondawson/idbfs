@@ -4,14 +4,20 @@ import type { Node, Entry, FileEntry, ListEntry, IdbfsOptions, DirStats, FsEvent
 export class Idbfs {
   private db!: IDBDatabase;
   private readonly ready: Promise<void>;
+  private readonly _readOnly: boolean;
   private _listeners: Array<{ watchPath: string; cb: (event: FsEvent) => void }> = [];
 
   constructor(options: IdbfsOptions = {}) {
-    const { dbName = "idbfs", dbVersion = 3 } = options;
+    const { dbName = "idbfs", dbVersion = 3, readOnly = false } = options;
+    this._readOnly = readOnly;
     this.ready = openDB(dbName, dbVersion).then((db) => {
       this.db = db;
       return this._ensureRoot();
     });
+  }
+
+  get readOnly(): boolean {
+    return this._readOnly;
   }
 
   async init(): Promise<this> {
@@ -21,11 +27,23 @@ export class Idbfs {
 
   // ── internal helpers ──────────────────────────────────────────────────────
 
+  private _assertWritable(): void {
+    if (this._readOnly) throw new Error("filesystem is read-only");
+  }
+
   private async _ensureRoot(): Promise<void> {
     const root = await getById(this.db, ROOT_ID);
     if (!root) {
       const now = Date.now();
-      await put(this.db, { id: ROOT_ID, name: "", parentId: null, type: "dir", size: 0, createdAt: now, modifiedAt: now });
+      await put(this.db, {
+        id: ROOT_ID,
+        name: "",
+        parentId: null,
+        type: "dir",
+        size: 0,
+        createdAt: now,
+        modifiedAt: now,
+      });
     }
   }
 
@@ -85,14 +103,24 @@ export class Idbfs {
   private _mapChildren(children: Node[], parentPath: string): ListEntry[] {
     const pp = parentPath === "/" ? "" : parentPath;
     return children
-      .map((c) => ({ id: c.id, name: c.name, path: `${pp}/${c.name}`, type: c.type, size: c.size, modifiedAt: c.modifiedAt }))
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        path: `${pp}/${c.name}`,
+        type: c.type,
+        size: c.size,
+        modifiedAt: c.modifiedAt,
+      }))
       .sort((a, b) => {
         if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
         return a.name.localeCompare(b.name);
       });
   }
 
-  private _splitDestPath(absDest: string, fallbackName: string): { newName: string; newParentAbs: string } {
+  private _splitDestPath(
+    absDest: string,
+    fallbackName: string,
+  ): { newName: string; newParentAbs: string } {
     const parts = absDest.split("/").filter(Boolean);
     return {
       newName: parts.at(-1) ?? fallbackName,
@@ -107,8 +135,15 @@ export class Idbfs {
 
   private _emit(event: FsEvent): void {
     for (const { watchPath, cb } of this._listeners) {
-      if (this._isUnder(event.path, watchPath) || (event.oldPath && this._isUnder(event.oldPath, watchPath))) {
-        try { cb(event); } catch { /* listener errors are isolated */ }
+      if (
+        this._isUnder(event.path, watchPath) ||
+        (event.oldPath && this._isUnder(event.oldPath, watchPath))
+      ) {
+        try {
+          cb(event);
+        } catch {
+          /* listener errors are isolated */
+        }
       }
     }
   }
@@ -149,6 +184,7 @@ export class Idbfs {
 
   async mkdir(path: string, cwd = "/"): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const abs = this.normalizePath(path, cwd);
     if (abs === "/") return;
     const parts = abs.split("/").filter(Boolean);
@@ -159,7 +195,15 @@ export class Idbfs {
       const existing = await getChildByName(this.db, parentId, part);
       if (!existing) {
         const id = this.newId();
-        await put(this.db, { id, name: part, parentId, type: "dir", size: 0, createdAt: now, modifiedAt: now });
+        await put(this.db, {
+          id,
+          name: part,
+          parentId,
+          type: "dir",
+          size: 0,
+          createdAt: now,
+          modifiedAt: now,
+        });
         this._emit({ type: "mkdir", path: "/" + parts.slice(0, i + 1).join("/") });
         parentId = id;
       } else if (existing.type !== "dir") {
@@ -172,6 +216,7 @@ export class Idbfs {
 
   async rmdir(path: string, cwd = "/"): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const abs = this.normalizePath(path, cwd);
     if (abs === "/") throw new Error("cannot remove root directory");
     const node = await this._assertNode(abs);
@@ -184,6 +229,7 @@ export class Idbfs {
 
   async mv(src: string, dest: string, cwd = "/"): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const absSrc = this.normalizePath(src, cwd);
     let absDest = this.normalizePath(dest, cwd);
     const srcNode = await this._assertNode(absSrc);
@@ -200,6 +246,7 @@ export class Idbfs {
 
   async cp(src: string, dest: string, cwd = "/"): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const absSrc = this.normalizePath(src, cwd);
     let absDest = this.normalizePath(dest, cwd);
     const srcNode = await this._assertNode(absSrc);
@@ -221,7 +268,15 @@ export class Idbfs {
     } else {
       if (finalDest?.type === "file") throw new Error(`file already exists: ${absDest}`);
       const now = Date.now();
-      await put(this.db, { ...srcNode, id: this.newId(), name: newName, parentId: newParent.id, data: srcNode.data?.slice(0), createdAt: now, modifiedAt: now });
+      await put(this.db, {
+        ...srcNode,
+        id: this.newId(),
+        name: newName,
+        parentId: newParent.id,
+        data: srcNode.data?.slice(0),
+        createdAt: now,
+        modifiedAt: now,
+      });
     }
     this._emit({ type: "copy", path: absDest, oldPath: absSrc });
   }
@@ -230,7 +285,15 @@ export class Idbfs {
     const existing = await getChildByName(this.db, newParentId, newName);
     const id = existing?.id ?? this.newId();
     const now = Date.now();
-    await put(this.db, { id, name: newName, parentId: newParentId, type: "dir", size: 0, createdAt: existing?.createdAt ?? now, modifiedAt: now });
+    await put(this.db, {
+      id,
+      name: newName,
+      parentId: newParentId,
+      type: "dir",
+      size: 0,
+      createdAt: existing?.createdAt ?? now,
+      modifiedAt: now,
+    });
     const children = await getChildrenOf(this.db, src.id);
     for (const child of children) {
       if (child.type === "dir") await this._cpDir(child, child.name, id);
@@ -240,6 +303,7 @@ export class Idbfs {
 
   async rm(path: string, cwd = "/"): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const abs = this.normalizePath(path, cwd);
     const node = await this._assertNode(abs);
     if (node.type !== "file") throw new Error(`is a directory: ${abs}`);
@@ -249,16 +313,27 @@ export class Idbfs {
 
   async writeFile(path: string, data: ArrayBuffer | string, cwd = "/"): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const abs = this.normalizePath(path, cwd);
     const parts = abs.split("/").filter(Boolean);
     const name = parts.at(-1)!;
     const parentAbs = parts.length > 1 ? "/" + parts.slice(0, -1).join("/") : "/";
     await this.mkdir(parentAbs);
     const parent = await this._assertNode(parentAbs);
-    const buf = typeof data === "string" ? new TextEncoder().encode(data).buffer as ArrayBuffer : data;
+    const buf =
+      typeof data === "string" ? (new TextEncoder().encode(data).buffer as ArrayBuffer) : data;
     const existing = await getChildByName(this.db, parent.id, name);
     const now = Date.now();
-    await put(this.db, { id: existing?.id ?? this.newId(), name, parentId: parent.id, type: "file", data: buf, size: buf.byteLength, createdAt: existing?.createdAt ?? now, modifiedAt: now });
+    await put(this.db, {
+      id: existing?.id ?? this.newId(),
+      name,
+      parentId: parent.id,
+      type: "file",
+      data: buf,
+      size: buf.byteLength,
+      createdAt: existing?.createdAt ?? now,
+      modifiedAt: now,
+    });
     this._emit({ type: "write", path: abs });
   }
 
@@ -324,6 +399,7 @@ export class Idbfs {
 
   async renameNode(nodeId: string, newName: string): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const node = await getById(this.db, nodeId);
     if (!node) throw new Error(`no such node`);
     if (!newName.trim()) throw new Error(`name cannot be empty`);
@@ -337,18 +413,28 @@ export class Idbfs {
 
   async mkdirUnder(parentId: string, name: string): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const parent = await getById(this.db, parentId);
     if (!parent || parent.type !== "dir") throw new Error(`not a directory`);
     const existing = await getChildByName(this.db, parentId, name);
     if (existing) throw new Error(`already exists: ${name}`);
     const parentPath = await this._getPath(parent);
     const now = Date.now();
-    await put(this.db, { id: this.newId(), name, parentId, type: "dir", size: 0, createdAt: now, modifiedAt: now });
+    await put(this.db, {
+      id: this.newId(),
+      name,
+      parentId,
+      type: "dir",
+      size: 0,
+      createdAt: now,
+      modifiedAt: now,
+    });
     this._emit({ type: "mkdir", path: parentPath === "/" ? `/${name}` : `${parentPath}/${name}` });
   }
 
   async rmById(nodeId: string): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const node = await getById(this.db, nodeId);
     if (!node) throw new Error(`no such node`);
     if (node.type !== "file") throw new Error(`is a directory`);
@@ -359,6 +445,7 @@ export class Idbfs {
 
   async rmDirById(nodeId: string): Promise<void> {
     await this.ready;
+    this._assertWritable();
     if (nodeId === ROOT_ID) throw new Error(`cannot remove root`);
     const node = await getById(this.db, nodeId);
     if (!node) throw new Error(`no such node`);
@@ -372,6 +459,7 @@ export class Idbfs {
 
   async mvNode(srcId: string, destParentId: string, newName?: string): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const src = await getById(this.db, srcId);
     if (!src) throw new Error(`no such node`);
     const destParent = await getById(this.db, destParentId);
@@ -397,6 +485,7 @@ export class Idbfs {
 
   async cpNode(srcId: string, destParentId: string, newName?: string): Promise<void> {
     await this.ready;
+    this._assertWritable();
     const src = await getById(this.db, srcId);
     if (!src) throw new Error(`no such node`);
     const destParent = await getById(this.db, destParentId);

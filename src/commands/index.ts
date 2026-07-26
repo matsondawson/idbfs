@@ -60,7 +60,14 @@ function fmtDu(stats: DirStats): OutputLine[] {
   }));
 }
 
-export async function runCommand(raw: string, cwd: string, fs: Idbfs): Promise<CommandResult> {
+export type ExtraCommand = (args: string[], cwd: string, fs: Idbfs) => Promise<CommandResult>;
+
+export async function runCommand(
+  raw: string,
+  cwd: string,
+  fs: Idbfs,
+  extra?: Record<string, ExtraCommand>,
+): Promise<CommandResult> {
   const tokens = raw.trim().split(/\s+/);
   const cmd = tokens[0] ?? "";
   const arg = tokens[1];
@@ -70,11 +77,17 @@ export async function runCommand(raw: string, cwd: string, fs: Idbfs): Promise<C
     return runCommand(`view ${cmd}`, cwd, fs);
   }
 
+  const extraHandler = extra?.[cmd.toLowerCase()];
+  if (extraHandler) return extraHandler(tokens.slice(1), cwd, fs);
+
   switch (cmd.toLowerCase()) {
     case "ls": {
-      const target = arg ?? cwd;
+      const rest = tokens.slice(1);
+      const showAll = rest.includes("-a");
+      const target = rest.find((t) => !t.startsWith("-")) ?? cwd;
       try {
-        const entries = await fs.ls(target, cwd);
+        let entries = await fs.ls(target, cwd);
+        if (!showAll) entries = entries.filter((e) => !e.name.startsWith("."));
         if (entries.length === 0) return { output: [{ kind: "text", text: "(empty)" }] };
         return { output: fmtAll(entries) };
       } catch (e) {
@@ -211,11 +224,12 @@ export async function runCommand(raw: string, cwd: string, fs: Idbfs): Promise<C
     case "pwd":
       return { output: [{ kind: "text", text: cwd }] };
 
-    case "help":
+    case "help": {
+      const extraNames = Object.keys(extra ?? {});
       return {
         output: [
           { kind: "text", text: "commands:" },
-          { kind: "text", text: "  ls [path]      list directory" },
+          { kind: "text", text: "  ls [-a] [path] list directory (-a shows hidden files)" },
           { kind: "text", text: "  cd [path]      change directory" },
           { kind: "text", text: "  mkdir <path>   create directory" },
           { kind: "text", text: "  rm <file>      remove file" },
@@ -230,8 +244,19 @@ export async function runCommand(raw: string, cwd: string, fs: Idbfs): Promise<C
           { kind: "text", text: "  clear          clear the terminal" },
           { kind: "text", text: "" },
           { kind: "text", text: "upload: drag & drop files or paste image (ctrl+v)" },
+          ...(extraNames.length > 0
+            ? [
+                { kind: "text" as const, text: "" },
+                { kind: "text" as const, text: "other commands:" },
+                ...extraNames.map((name) => ({
+                  kind: "text" as const,
+                  text: `  ${name}   run '${name} help' for details`,
+                })),
+              ]
+            : []),
         ],
       };
+    }
 
     case "":
       return { output: [] };

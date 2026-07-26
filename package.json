@@ -3,7 +3,12 @@
   "version": "1.0.0",
   "private": false,
   "description": "A browser filesystem backed by IndexedDB.",
-  "keywords": ["indexeddb", "filesystem", "browser", "react"],
+  "keywords": [
+    "indexeddb",
+    "filesystem",
+    "browser",
+    "react"
+  ],
   "author": "Matt Dawson",
   "license": "MIT",
   "repository": {
@@ -15,20 +20,22 @@
     "url": "https://github.com/matsondawson/idbfs/issues"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "files": [
     "dist"
   ],
   "type": "module",
+  "packageManager": "pnpm@11.1.2",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/lib/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/lib/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
-      "types": "./dist/lib/index.d.ts"
+      "require": "./dist/index.cjs"
     },
     "./style.css": "./dist/index.css"
   },
@@ -39,13 +46,9 @@
     "fmt": "oxfmt src",
     "fmt:check": "oxfmt --check src",
     "preview": "vite preview",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "test:ui": "vitest --ui",
-    "prepublishOnly": "npm run lint && npm run test:run && npm run build",
-    "release:patch": "npm version patch && npm publish",
-    "release:minor": "npm version minor && npm publish",
-    "release:major": "npm version major && npm publish"
+    "test": "NODE_OPTIONS=--no-experimental-webstorage vitest",
+    "test:run": "NODE_OPTIONS=--no-experimental-webstorage vitest run",
+    "test:ui": "NODE_OPTIONS=--no-experimental-webstorage vitest --ui"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.2",
@@ -60,6 +63,7 @@
     "oxfmt": "^0.47.0",
     "oxlint": "^1.62.0",
     "react": "^19.2.8",
+    "semantic-release": "^25.0.8",
     "react-dom": "^19.2.8",
     "typescript": "~6.0.2",
     "vite": "^8.0.10",
@@ -68,5 +72,9 @@
   "peerDependencies": {
     "react": ">=19",
     "react-dom": ">=19"
+  },
+  "dependencies": {
+    "@octokit/rest": "^22.0.1",
+    "ignore": "^7.0.6"
   }
 }

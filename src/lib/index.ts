@@ -3,6 +3,8 @@ export { ROOT_ID } from "./db";
 export { mimeFromName } from "./mime";
 export { complete } from "./complete";
 export type { CompletionResult } from "./complete";
+export { buildIgnoreMatcher } from "./gitignore";
+export type { IgnoreMatcher } from "./gitignore";
 export type {
   Entry,
   FileEntry,
@@ -15,7 +17,8 @@ export type {
   FsEventType,
 } from "./types";
 export { FileTree } from "../ui/FileTree";
+export type { Feature } from "../ui/FileTree";
 export { Terminal } from "../ui/Terminal";
 export { fileIconColor } from "../ui/icons";
 export { runCommand } from "../commands/index";
-export type { Segment, OutputLine, CommandResult } from "../commands/index";
+export type { Segment, OutputLine, CommandResult, ExtraCommand } from "../commands/index";

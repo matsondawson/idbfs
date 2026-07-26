@@ -1,0 +1,97 @@
+.idbfs-gh-auth {
+  position: relative;
+  font-size: 12px;
+}
+
+.idbfs-gh-auth__trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--idbfs-border);
+  border-radius: 4px;
+  color: var(--idbfs-text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.idbfs-gh-auth__trigger:hover {
+  background: var(--idbfs-surface-hover);
+}
+
+.idbfs-gh-auth__panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 10;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--idbfs-surface);
+  border: 1px solid var(--idbfs-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  padding: 8px;
+}
+
+.idbfs-gh-auth__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.idbfs-gh-auth__label {
+  color: var(--idbfs-text-muted);
+  flex: 1;
+}
+
+.idbfs-gh-auth__input {
+  background: var(--idbfs-input-bg);
+  border: 1px solid var(--idbfs-border);
+  border-radius: 3px;
+  color: var(--idbfs-text);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 4px 6px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.idbfs-gh-auth__btn {
+  background: var(--idbfs-surface-hover);
+  border: 1px solid var(--idbfs-border);
+  border-radius: 3px;
+  color: var(--idbfs-text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.idbfs-gh-auth__btn:hover:not(:disabled) {
+  border-color: var(--idbfs-accent);
+}
+
+.idbfs-gh-auth__btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.idbfs-gh-auth__link {
+  background: none;
+  border: none;
+  color: var(--idbfs-accent-blue);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 0;
+}
+
+.idbfs-gh-auth__error {
+  color: var(--idbfs-error);
+  white-space: pre-wrap;
+}
