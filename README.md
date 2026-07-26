@@ -20,6 +20,7 @@ import "@octalgia/idbfs/style.css"; // required for the React components
 To run this repo's demo app locally:
 
 ```sh
+git clone https://github.com/matsondawson/idbfs.git
 pnpm install
 pnpm run dev
 ```
