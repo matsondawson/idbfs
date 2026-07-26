@@ -31,7 +31,10 @@ export function subscribeActivity(fn: Listener): () => void {
 }
 
 /** wraps an async action, showing `label` (optionally with live progress) while it runs */
-export async function withActivity<T>(label: string, fn: (onProgress: (done: number, total: number) => void) => Promise<T>): Promise<T> {
+export async function withActivity<T>(
+  label: string,
+  fn: (onProgress: (done: number, total: number) => void) => Promise<T>,
+): Promise<T> {
   setActivity(true, label);
   try {
     return await fn((done, total) => setActivity(true, `${label} (${done}/${total})`));

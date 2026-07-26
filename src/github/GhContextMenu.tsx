@@ -4,7 +4,16 @@ import { getToken } from "./auth";
 import { GitHubClient } from "./client";
 import { findSyncRoot } from "./configDiscovery";
 import { readConfig } from "./syncMeta";
-import { push, pull, status, initSyncRoot, listBranches, createBranch, checkoutBranch, prepareCloneTarget } from "./sync";
+import {
+  push,
+  pull,
+  status,
+  initSyncRoot,
+  listBranches,
+  createBranch,
+  checkoutBranch,
+  prepareCloneTarget,
+} from "./sync";
 import { parseRepoSpec } from "./repoSpec";
 import { withActivity } from "./activity";
 import type { SyncConfig } from "./types";
@@ -26,7 +35,12 @@ function notify(lines: string[]): void {
 }
 
 function fmtNested(paths: string[]): string[] {
-  return paths.length > 0 ? [`${paths.length} nested repo(s) skipped (they sync independently):`, ...paths.map((p) => `  ${p}`)] : [];
+  return paths.length > 0
+    ? [
+        `${paths.length} nested repo(s) skipped (they sync independently):`,
+        ...paths.map((p) => `  ${p}`),
+      ]
+    : [];
 }
 
 function requireToken(): string | null {
@@ -68,7 +82,9 @@ export function GhContextMenuItems({ fs, entry, onChanged, close }: Props) {
     close();
     const token = requireToken();
     if (!token) return;
-    const spec = window.prompt("Clone which repo? (owner/repo or github.com URL) — creates a new subfolder here");
+    const spec = window.prompt(
+      "Clone which repo? (owner/repo or github.com URL) — creates a new subfolder here",
+    );
     if (!spec) return;
     const parsed = parseRepoSpec(spec);
     if (!parsed) return notify(["invalid repo — use owner/repo or a github.com URL"]);
@@ -91,7 +107,9 @@ export function GhContextMenuItems({ fs, entry, onChanged, close }: Props) {
 
   const handleInit = async () => {
     close();
-    const spec = window.prompt("Configure this folder to sync with which repo? (owner/repo or github.com URL)");
+    const spec = window.prompt(
+      "Configure this folder to sync with which repo? (owner/repo or github.com URL)",
+    );
     if (!spec) return;
     const parsed = parseRepoSpec(spec);
     if (!parsed) return notify(["invalid repo — use owner/repo or a github.com URL"]);
@@ -107,8 +125,10 @@ export function GhContextMenuItems({ fs, entry, onChanged, close }: Props) {
     const token = requireToken();
     if (!token) return;
     try {
-      const result = await withActivity(`Pushing to ${resolved.config.owner}/${resolved.config.repo}...`, (onProgress) =>
-        push(fs, resolved.syncRoot, new GitHubClient(token), resolved.config, { onProgress }),
+      const result = await withActivity(
+        `Pushing to ${resolved.config.owner}/${resolved.config.repo}...`,
+        (onProgress) =>
+          push(fs, resolved.syncRoot, new GitHubClient(token), resolved.config, { onProgress }),
       );
       onChanged?.();
       if (result.conflicts.length > 0) {
@@ -131,11 +151,15 @@ export function GhContextMenuItems({ fs, entry, onChanged, close }: Props) {
     const token = requireToken();
     if (!token) return;
     try {
-      const result = await withActivity(`Pulling from ${resolved.config.owner}/${resolved.config.repo}...`, (onProgress) =>
-        pull(fs, resolved.syncRoot, new GitHubClient(token), resolved.config, { onProgress }),
+      const result = await withActivity(
+        `Pulling from ${resolved.config.owner}/${resolved.config.repo}...`,
+        (onProgress) =>
+          pull(fs, resolved.syncRoot, new GitHubClient(token), resolved.config, { onProgress }),
       );
       onChanged?.();
-      const lines = [`pulled: ${result.written.length} written, ${result.unchanged.length} unchanged`];
+      const lines = [
+        `pulled: ${result.written.length} written, ${result.unchanged.length} unchanged`,
+      ];
       if (result.skippedConflicts.length > 0) {
         lines.push("conflicts skipped:", ...result.skippedConflicts.map((c) => `  ${c.path}`));
       }
@@ -152,13 +176,16 @@ export function GhContextMenuItems({ fs, entry, onChanged, close }: Props) {
     const token = requireToken();
     if (!token) return;
     try {
-      const result = await withActivity(`Checking status of ${resolved.config.owner}/${resolved.config.repo}...`, () =>
-        status(fs, resolved.syncRoot, new GitHubClient(token), resolved.config),
+      const result = await withActivity(
+        `Checking status of ${resolved.config.owner}/${resolved.config.repo}...`,
+        () => status(fs, resolved.syncRoot, new GitHubClient(token), resolved.config),
       );
       notify([
         `local:  ${result.localChanged.length ? result.localChanged.join(", ") : "(none)"}`,
         `remote: ${result.remoteChanged.length ? result.remoteChanged.join(", ") : "(none)"}`,
-        ...(result.conflicts.length ? ["conflicts:", ...result.conflicts.map((c) => `  ${c.path}`)] : []),
+        ...(result.conflicts.length
+          ? ["conflicts:", ...result.conflicts.map((c) => `  ${c.path}`)]
+          : []),
         ...fmtNested(result.skippedNestedRepos),
       ]);
     } catch (e) {
@@ -173,8 +200,9 @@ export function GhContextMenuItems({ fs, entry, onChanged, close }: Props) {
     if (!token) return;
     try {
       const client = new GitHubClient(token);
-      const branches = await withActivity(`Loading branches for ${resolved.config.owner}/${resolved.config.repo}...`, () =>
-        listBranches(client, resolved.config),
+      const branches = await withActivity(
+        `Loading branches for ${resolved.config.owner}/${resolved.config.repo}...`,
+        () => listBranches(client, resolved.config),
       );
       const name = window.prompt(
         `Branches: ${branches.join(", ")}\n\nSwitch to (or type a new name to create it):`,
@@ -182,8 +210,15 @@ export function GhContextMenuItems({ fs, entry, onChanged, close }: Props) {
       );
       if (!name || name === resolved.config.branch) return;
       if (!branches.includes(name)) {
-        if (!window.confirm(`Branch '${name}' doesn't exist — create it from ${resolved.config.branch}?`)) return;
-        await withActivity(`Creating branch ${name}...`, () => createBranch(client, resolved.config, name));
+        if (
+          !window.confirm(
+            `Branch '${name}' doesn't exist — create it from ${resolved.config.branch}?`,
+          )
+        )
+          return;
+        await withActivity(`Creating branch ${name}...`, () =>
+          createBranch(client, resolved.config, name),
+        );
       }
       await checkoutBranch(fs, resolved.syncRoot, resolved.config, name);
       onChanged?.();

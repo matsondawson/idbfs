@@ -35,7 +35,15 @@ export class Idbfs {
     const root = await getById(this.db, ROOT_ID);
     if (!root) {
       const now = Date.now();
-      await put(this.db, { id: ROOT_ID, name: "", parentId: null, type: "dir", size: 0, createdAt: now, modifiedAt: now });
+      await put(this.db, {
+        id: ROOT_ID,
+        name: "",
+        parentId: null,
+        type: "dir",
+        size: 0,
+        createdAt: now,
+        modifiedAt: now,
+      });
     }
   }
 
@@ -95,14 +103,24 @@ export class Idbfs {
   private _mapChildren(children: Node[], parentPath: string): ListEntry[] {
     const pp = parentPath === "/" ? "" : parentPath;
     return children
-      .map((c) => ({ id: c.id, name: c.name, path: `${pp}/${c.name}`, type: c.type, size: c.size, modifiedAt: c.modifiedAt }))
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        path: `${pp}/${c.name}`,
+        type: c.type,
+        size: c.size,
+        modifiedAt: c.modifiedAt,
+      }))
       .sort((a, b) => {
         if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
         return a.name.localeCompare(b.name);
       });
   }
 
-  private _splitDestPath(absDest: string, fallbackName: string): { newName: string; newParentAbs: string } {
+  private _splitDestPath(
+    absDest: string,
+    fallbackName: string,
+  ): { newName: string; newParentAbs: string } {
     const parts = absDest.split("/").filter(Boolean);
     return {
       newName: parts.at(-1) ?? fallbackName,
@@ -117,8 +135,15 @@ export class Idbfs {
 
   private _emit(event: FsEvent): void {
     for (const { watchPath, cb } of this._listeners) {
-      if (this._isUnder(event.path, watchPath) || (event.oldPath && this._isUnder(event.oldPath, watchPath))) {
-        try { cb(event); } catch { /* listener errors are isolated */ }
+      if (
+        this._isUnder(event.path, watchPath) ||
+        (event.oldPath && this._isUnder(event.oldPath, watchPath))
+      ) {
+        try {
+          cb(event);
+        } catch {
+          /* listener errors are isolated */
+        }
       }
     }
   }
@@ -170,7 +195,15 @@ export class Idbfs {
       const existing = await getChildByName(this.db, parentId, part);
       if (!existing) {
         const id = this.newId();
-        await put(this.db, { id, name: part, parentId, type: "dir", size: 0, createdAt: now, modifiedAt: now });
+        await put(this.db, {
+          id,
+          name: part,
+          parentId,
+          type: "dir",
+          size: 0,
+          createdAt: now,
+          modifiedAt: now,
+        });
         this._emit({ type: "mkdir", path: "/" + parts.slice(0, i + 1).join("/") });
         parentId = id;
       } else if (existing.type !== "dir") {
@@ -235,7 +268,15 @@ export class Idbfs {
     } else {
       if (finalDest?.type === "file") throw new Error(`file already exists: ${absDest}`);
       const now = Date.now();
-      await put(this.db, { ...srcNode, id: this.newId(), name: newName, parentId: newParent.id, data: srcNode.data?.slice(0), createdAt: now, modifiedAt: now });
+      await put(this.db, {
+        ...srcNode,
+        id: this.newId(),
+        name: newName,
+        parentId: newParent.id,
+        data: srcNode.data?.slice(0),
+        createdAt: now,
+        modifiedAt: now,
+      });
     }
     this._emit({ type: "copy", path: absDest, oldPath: absSrc });
   }
@@ -244,7 +285,15 @@ export class Idbfs {
     const existing = await getChildByName(this.db, newParentId, newName);
     const id = existing?.id ?? this.newId();
     const now = Date.now();
-    await put(this.db, { id, name: newName, parentId: newParentId, type: "dir", size: 0, createdAt: existing?.createdAt ?? now, modifiedAt: now });
+    await put(this.db, {
+      id,
+      name: newName,
+      parentId: newParentId,
+      type: "dir",
+      size: 0,
+      createdAt: existing?.createdAt ?? now,
+      modifiedAt: now,
+    });
     const children = await getChildrenOf(this.db, src.id);
     for (const child of children) {
       if (child.type === "dir") await this._cpDir(child, child.name, id);
@@ -271,10 +320,20 @@ export class Idbfs {
     const parentAbs = parts.length > 1 ? "/" + parts.slice(0, -1).join("/") : "/";
     await this.mkdir(parentAbs);
     const parent = await this._assertNode(parentAbs);
-    const buf = typeof data === "string" ? new TextEncoder().encode(data).buffer as ArrayBuffer : data;
+    const buf =
+      typeof data === "string" ? (new TextEncoder().encode(data).buffer as ArrayBuffer) : data;
     const existing = await getChildByName(this.db, parent.id, name);
     const now = Date.now();
-    await put(this.db, { id: existing?.id ?? this.newId(), name, parentId: parent.id, type: "file", data: buf, size: buf.byteLength, createdAt: existing?.createdAt ?? now, modifiedAt: now });
+    await put(this.db, {
+      id: existing?.id ?? this.newId(),
+      name,
+      parentId: parent.id,
+      type: "file",
+      data: buf,
+      size: buf.byteLength,
+      createdAt: existing?.createdAt ?? now,
+      modifiedAt: now,
+    });
     this._emit({ type: "write", path: abs });
   }
 
@@ -361,7 +420,15 @@ export class Idbfs {
     if (existing) throw new Error(`already exists: ${name}`);
     const parentPath = await this._getPath(parent);
     const now = Date.now();
-    await put(this.db, { id: this.newId(), name, parentId, type: "dir", size: 0, createdAt: now, modifiedAt: now });
+    await put(this.db, {
+      id: this.newId(),
+      name,
+      parentId,
+      type: "dir",
+      size: 0,
+      createdAt: now,
+      modifiedAt: now,
+    });
     this._emit({ type: "mkdir", path: parentPath === "/" ? `/${name}` : `${parentPath}/${name}` });
   }
 

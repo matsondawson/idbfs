@@ -37,7 +37,11 @@ describe("gh init refuses to nest inside an existing repo by default", () => {
     await fs.mkdir("/project/nested");
     await ghCommand(["init", "alice/outer-repo"], "/project", fs);
 
-    const result = await ghCommand(["init", "bob/inner-repo", "main", "--force"], "/project/nested", fs);
+    const result = await ghCommand(
+      ["init", "bob/inner-repo", "main", "--force"],
+      "/project/nested",
+      fs,
+    );
     expect(outputText(result)).toContain("initialized sync root");
     expect((await readConfig(fs, "/project/nested"))?.repo).toBe("inner-repo");
   });
@@ -61,7 +65,9 @@ describe("warnIfNested (the shared guard behind both gh init and gh clone)", () 
 
     const warning = await warnIfNested(fs, "/project/inner", false);
     expect(warning).not.toBeNull();
-    expect(warning!.map((l) => ("text" in l ? l.text : "")).join(" ")).toContain("alice/outer-repo");
+    expect(warning!.map((l) => ("text" in l ? l.text : "")).join(" ")).toContain(
+      "alice/outer-repo",
+    );
   });
 
   it("returns null (bypassed) when force is true, even when nested", async () => {

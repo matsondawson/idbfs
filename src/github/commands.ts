@@ -4,7 +4,16 @@ import { getToken, setToken, clearToken, whoami } from "./auth";
 import { GitHubClient } from "./client";
 import { findSyncRoot } from "./configDiscovery";
 import { readConfig } from "./syncMeta";
-import { push, pull, status, listBranches, createBranch, checkoutBranch, initSyncRoot, prepareCloneTarget } from "./sync";
+import {
+  push,
+  pull,
+  status,
+  listBranches,
+  createBranch,
+  checkoutBranch,
+  initSyncRoot,
+  prepareCloneTarget,
+} from "./sync";
 import { parseRepoSpec } from "./repoSpec";
 import { withActivity } from "./activity";
 import type { SyncConfig, ConflictInfo } from "./types";
@@ -29,7 +38,9 @@ async function requireContext(
   const syncRoot = await findSyncRoot(fs, cwd);
   if (!syncRoot)
     return [
-      error("no github sync configured here — run `gh clone <owner>/<repo>` to fetch an existing repo,"),
+      error(
+        "no github sync configured here — run `gh clone <owner>/<repo>` to fetch an existing repo,",
+      ),
       error("or `gh init <owner>/<repo> [branch]` to sync this directory to a new one"),
     ];
 
@@ -41,14 +52,18 @@ async function requireContext(
 
 function fmtConflicts(conflicts: ConflictInfo[]): OutputLine[] {
   if (conflicts.length === 0) return [];
-  const lines: OutputLine[] = [error(`${conflicts.length} conflict(s) — both local and remote changed since last sync:`)];
+  const lines: OutputLine[] = [
+    error(`${conflicts.length} conflict(s) — both local and remote changed since last sync:`),
+  ];
   for (const c of conflicts) lines.push(text(`  ${c.path}`));
   return lines;
 }
 
 function fmtNestedRepos(paths: string[]): OutputLine[] {
   if (paths.length === 0) return [];
-  const lines: OutputLine[] = [text(`${paths.length} nested repo(s) skipped (they sync independently):`)];
+  const lines: OutputLine[] = [
+    text(`${paths.length} nested repo(s) skipped (they sync independently):`),
+  ];
   for (const p of paths) lines.push(text(`  ${p}`));
   return lines;
 }
@@ -85,13 +100,19 @@ async function authCommand(args: string[]): Promise<CommandResult> {
   }
 }
 
-export async function warnIfNested(fs: Idbfs, parentDir: string, force: boolean): Promise<OutputLine[] | null> {
+export async function warnIfNested(
+  fs: Idbfs,
+  parentDir: string,
+  force: boolean,
+): Promise<OutputLine[] | null> {
   if (force) return null;
   const existingRoot = await findSyncRoot(fs, parentDir);
   if (!existingRoot) return null;
   const existingConfig = await readConfig(fs, existingRoot);
   return [
-    error(`${parentDir} is already inside a repo synced to ${existingConfig?.owner}/${existingConfig?.repo} (at ${existingRoot})`),
+    error(
+      `${parentDir} is already inside a repo synced to ${existingConfig?.owner}/${existingConfig?.repo} (at ${existingRoot})`,
+    ),
     error("pass --force if you really want a nested repo here"),
   ];
 }
@@ -104,7 +125,9 @@ async function initCommand(fs: Idbfs, cwd: string, args: string[]): Promise<Comm
   const nestedWarning = await warnIfNested(fs, cwd, force);
   if (nestedWarning) return ok(nestedWarning);
   const config = await initSyncRoot(fs, cwd, parsed.owner, parsed.repo, branch ?? "main");
-  return ok([text(`initialized sync root at ${cwd} -> ${config.owner}/${config.repo}@${config.branch}`)]);
+  return ok([
+    text(`initialized sync root at ${cwd} -> ${config.owner}/${config.repo}@${config.branch}`),
+  ]);
 }
 
 async function cloneCommand(fs: Idbfs, cwd: string, args: string[]): Promise<CommandResult> {
@@ -129,7 +152,11 @@ async function cloneCommand(fs: Idbfs, cwd: string, args: string[]): Promise<Com
       text(`  ${result.written.length} written, ${result.unchanged.length} unchanged`),
     ];
     if (result.skippedConflicts.length > 0) {
-      lines.push(error(`${result.skippedConflicts.length} path(s) already existed locally and were left alone:`));
+      lines.push(
+        error(
+          `${result.skippedConflicts.length} path(s) already existed locally and were left alone:`,
+        ),
+      );
       for (const c of result.skippedConflicts) lines.push(text(`  ${c.path}`));
     }
     lines.push(...fmtNestedRepos(result.skippedNestedRepos));
@@ -159,14 +186,21 @@ async function pushCommand(fs: Idbfs, cwd: string, args: string[]): Promise<Comm
   const mIdx = args.indexOf("-m");
   const message = mIdx !== -1 ? args.slice(mIdx + 1).join(" ") : undefined;
   try {
-    const result = await withActivity(`Pushing to ${ctx.config.owner}/${ctx.config.repo}...`, (onProgress) =>
-      push(fs, ctx.syncRoot, ctx.client, ctx.config, { message, force, onProgress }),
+    const result = await withActivity(
+      `Pushing to ${ctx.config.owner}/${ctx.config.repo}...`,
+      (onProgress) =>
+        push(fs, ctx.syncRoot, ctx.client, ctx.config, { message, force, onProgress }),
     );
     if (result.conflicts.length > 0) {
-      return ok([error("push refused — resolve conflicts or use --force"), ...fmtConflicts(result.conflicts)]);
+      return ok([
+        error("push refused — resolve conflicts or use --force"),
+        ...fmtConflicts(result.conflicts),
+      ]);
     }
     return ok([
-      text(`pushed ${result.commitSha.slice(0, 7)} to ${ctx.config.owner}/${ctx.config.repo}@${ctx.config.branch}`),
+      text(
+        `pushed ${result.commitSha.slice(0, 7)} to ${ctx.config.owner}/${ctx.config.repo}@${ctx.config.branch}`,
+      ),
       text(`  ${result.uploaded.length} uploaded, ${result.unchanged.length} unchanged`),
       ...fmtNestedRepos(result.skippedNestedRepos),
     ]);
@@ -185,12 +219,19 @@ async function pullCommand(fs: Idbfs, cwd: string, args: string[]): Promise<Comm
     if (fIdx !== -1 && args[fIdx + 1]) forcePaths = [args[fIdx + 1]];
   }
   try {
-    const result = await withActivity(`Pulling from ${ctx.config.owner}/${ctx.config.repo}...`, (onProgress) =>
-      pull(fs, ctx.syncRoot, ctx.client, ctx.config, { forcePaths, onProgress }),
+    const result = await withActivity(
+      `Pulling from ${ctx.config.owner}/${ctx.config.repo}...`,
+      (onProgress) => pull(fs, ctx.syncRoot, ctx.client, ctx.config, { forcePaths, onProgress }),
     );
-    const lines: OutputLine[] = [text(`pulled: ${result.written.length} written, ${result.unchanged.length} unchanged`)];
+    const lines: OutputLine[] = [
+      text(`pulled: ${result.written.length} written, ${result.unchanged.length} unchanged`),
+    ];
     if (result.skippedConflicts.length > 0) {
-      lines.push(error(`${result.skippedConflicts.length} conflict(s) skipped — use --force <path> or --force-all`));
+      lines.push(
+        error(
+          `${result.skippedConflicts.length} conflict(s) skipped — use --force <path> or --force-all`,
+        ),
+      );
       for (const c of result.skippedConflicts) lines.push(text(`  ${c.path}`));
     }
     lines.push(...fmtNestedRepos(result.skippedNestedRepos));
@@ -204,12 +245,21 @@ async function statusCommand(fs: Idbfs, cwd: string): Promise<CommandResult> {
   const ctx = await requireContext(fs, cwd);
   if (Array.isArray(ctx)) return ok(ctx);
   try {
-    const result = await withActivity(`Checking status of ${ctx.config.owner}/${ctx.config.repo}...`, () =>
-      status(fs, ctx.syncRoot, ctx.client, ctx.config),
+    const result = await withActivity(
+      `Checking status of ${ctx.config.owner}/${ctx.config.repo}...`,
+      () => status(fs, ctx.syncRoot, ctx.client, ctx.config),
     );
     const lines: OutputLine[] = [];
-    lines.push(text(`local changes:  ${result.localChanged.length ? result.localChanged.join(", ") : "(none)"}`));
-    lines.push(text(`remote changes: ${result.remoteChanged.length ? result.remoteChanged.join(", ") : "(none)"}`));
+    lines.push(
+      text(
+        `local changes:  ${result.localChanged.length ? result.localChanged.join(", ") : "(none)"}`,
+      ),
+    );
+    lines.push(
+      text(
+        `remote changes: ${result.remoteChanged.length ? result.remoteChanged.join(", ") : "(none)"}`,
+      ),
+    );
     lines.push(...fmtConflicts(result.conflicts));
     lines.push(...fmtNestedRepos(result.skippedNestedRepos));
     return ok(lines);
@@ -223,11 +273,14 @@ async function branchCommand(fs: Idbfs, cwd: string, args: string[]): Promise<Co
   if (Array.isArray(ctx)) return ok(ctx);
   try {
     if (args[0]) {
-      await withActivity(`Creating branch ${args[0]}...`, () => createBranch(ctx.client, ctx.config, args[0]));
+      await withActivity(`Creating branch ${args[0]}...`, () =>
+        createBranch(ctx.client, ctx.config, args[0]),
+      );
       return ok([text(`created branch ${args[0]} from ${ctx.config.branch}`)]);
     }
-    const branches = await withActivity(`Loading branches for ${ctx.config.owner}/${ctx.config.repo}...`, () =>
-      listBranches(ctx.client, ctx.config),
+    const branches = await withActivity(
+      `Loading branches for ${ctx.config.owner}/${ctx.config.repo}...`,
+      () => listBranches(ctx.client, ctx.config),
     );
     return ok(branches.map((b) => text(b === ctx.config.branch ? `* ${b}` : `  ${b}`)));
   } catch (e) {

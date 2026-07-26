@@ -134,7 +134,12 @@ export default function App() {
           </div>
         }
         renderContextMenuExtra={(entry, close) => (
-          <GhContextMenuItems fs={fs} entry={entry} onChanged={() => setRefreshKey((k) => k + 1)} close={close} />
+          <GhContextMenuItems
+            fs={fs}
+            entry={entry}
+            onChanged={() => setRefreshKey((k) => k + 1)}
+            close={close}
+          />
         )}
       />
       <Terminal

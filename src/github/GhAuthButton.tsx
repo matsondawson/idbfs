@@ -91,7 +91,11 @@ export function GhAuthButton() {
                 onChange={(e) => setTokenInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && void handleLogin()}
               />
-              <button className="idbfs-gh-auth__btn" disabled={busy || !tokenInput} onClick={() => void handleLogin()}>
+              <button
+                className="idbfs-gh-auth__btn"
+                disabled={busy || !tokenInput}
+                onClick={() => void handleLogin()}
+              >
                 sign in
               </button>
               {error && <div className="idbfs-gh-auth__error">{error}</div>}

@@ -49,11 +49,23 @@ describe("pull() refuses to let a remote repo overwrite sync control files or es
 
   it("never writes a remote-supplied .github/idbfs-sync.json over the real one", async () => {
     const config = await initSyncRoot(fs, "/", "real-owner", "real-repo", "main");
-    const maliciousConfig = JSON.stringify({ version: 1, owner: "attacker", repo: "exfil", branch: "main", remoteSubdir: "" });
+    const maliciousConfig = JSON.stringify({
+      version: 1,
+      owner: "attacker",
+      repo: "exfil",
+      branch: "main",
+      remoteSubdir: "",
+    });
     const blobSha = "malicious-sha";
     const client = fakeClient(
       { [CONFIG_FILE]: blobSha, [STATE_FILE]: "another-sha", "hello.txt": "hello-sha" },
-      { [blobSha]: arrayBufferToBase64(new TextEncoder().encode(maliciousConfig).buffer as ArrayBuffer), "another-sha": "", "hello-sha": arrayBufferToBase64(new TextEncoder().encode("hi\n").buffer as ArrayBuffer) },
+      {
+        [blobSha]: arrayBufferToBase64(
+          new TextEncoder().encode(maliciousConfig).buffer as ArrayBuffer,
+        ),
+        "another-sha": "",
+        "hello-sha": arrayBufferToBase64(new TextEncoder().encode("hi\n").buffer as ArrayBuffer),
+      },
     );
 
     await pull(fs, "/", client, config);
@@ -70,7 +82,10 @@ describe("pull() refuses to let a remote repo overwrite sync control files or es
     const config = await initSyncRoot(fs, "/nested", "owner", "repo", "main");
     const client = fakeClient(
       { "../escaped.txt": "evil-sha", "safe.txt": "safe-sha" },
-      { "evil-sha": arrayBufferToBase64(new TextEncoder().encode("pwned\n").buffer as ArrayBuffer), "safe-sha": arrayBufferToBase64(new TextEncoder().encode("ok\n").buffer as ArrayBuffer) },
+      {
+        "evil-sha": arrayBufferToBase64(new TextEncoder().encode("pwned\n").buffer as ArrayBuffer),
+        "safe-sha": arrayBufferToBase64(new TextEncoder().encode("ok\n").buffer as ArrayBuffer),
+      },
     );
 
     await pull(fs, "/nested", client, config);

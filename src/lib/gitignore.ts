@@ -7,7 +7,12 @@ interface RawGitignore {
   lines: string[];
 }
 
-async function collectGitignores(fs: Idbfs, absDir: string, relDir: string, out: RawGitignore[]): Promise<void> {
+async function collectGitignores(
+  fs: Idbfs,
+  absDir: string,
+  relDir: string,
+  out: RawGitignore[],
+): Promise<void> {
   const entries = await fs.ls(absDir);
   const gitignoreEntry = entries.find((e) => e.type === "file" && e.name === ".gitignore");
   if (gitignoreEntry) {

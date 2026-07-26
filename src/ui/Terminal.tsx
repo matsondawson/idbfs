@@ -29,14 +29,24 @@ export function Terminal({
   statusLine,
 }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
-  const { externalDrag, onDragOver, onDragLeave, onDrop, onPaste } = useFileDrop(fs, cwd, onUploaded);
+  const { externalDrag, onDragOver, onDragLeave, onDrop, onPaste } = useFileDrop(
+    fs,
+    cwd,
+    onUploaded,
+  );
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [lines]);
 
   return (
-    <div className={`idbfs-terminal idbfs-${theme}`} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} onPaste={onPaste}>
+    <div
+      className={`idbfs-terminal idbfs-${theme}`}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      onPaste={onPaste}
+    >
       <div className="idbfs-terminal__output">
         {lines.map((block, i) => (
           <div key={i}>
@@ -47,7 +57,13 @@ export function Terminal({
           </div>
         ))}
         {statusLine}
-        <CommandLine cwd={cwd} fs={fs} history={history} onSubmit={onSubmit} onCompletions={onCompletions} />
+        <CommandLine
+          cwd={cwd}
+          fs={fs}
+          history={history}
+          onSubmit={onSubmit}
+          onCompletions={onCompletions}
+        />
         <div ref={bottomRef} />
       </div>
       {externalDrag && <DropOverlay />}
@@ -60,7 +76,9 @@ function OutputItem({ line }: { line: OutputLine }) {
     return (
       <div className="idbfs-terminal__line">
         {line.segments.map((seg, i) => (
-          <span key={i} style={{ color: seg.color }}>{seg.text}</span>
+          <span key={i} style={{ color: seg.color }}>
+            {seg.text}
+          </span>
         ))}
       </div>
     );

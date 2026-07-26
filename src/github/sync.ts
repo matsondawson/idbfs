@@ -2,9 +2,23 @@ import type { Idbfs } from "../lib";
 import type { GitHubClient, TreeEntry } from "./client";
 import { buildIgnoreMatcher } from "../lib/gitignore";
 import { computeBlobSha1, arrayBufferToBase64, base64ToArrayBuffer } from "./blobsha";
-import { CONFIG_FILE, STATE_FILE, readConfig, writeConfig, readState, writeState } from "./syncMeta";
+import {
+  CONFIG_FILE,
+  STATE_FILE,
+  readConfig,
+  writeConfig,
+  readState,
+  writeState,
+} from "./syncMeta";
 import { mapLimit } from "./concurrency";
-import type { SyncConfig, SyncState, ConflictInfo, PushResult, PullResult, StatusResult } from "./types";
+import type {
+  SyncConfig,
+  SyncState,
+  ConflictInfo,
+  PushResult,
+  PullResult,
+  StatusResult,
+} from "./types";
 
 const MAX_CONCURRENT_TRANSFERS = 5;
 export type ProgressCallback = (done: number, total: number) => void;
@@ -80,7 +94,11 @@ function diffThreeWay(
   remoteShas: Record<string, string>,
   baseShas: Record<string, string>,
 ): ConflictInfo[] {
-  const paths = new Set([...Object.keys(localShas), ...Object.keys(remoteShas), ...Object.keys(baseShas)]);
+  const paths = new Set([
+    ...Object.keys(localShas),
+    ...Object.keys(remoteShas),
+    ...Object.keys(baseShas),
+  ]);
   const conflicts: ConflictInfo[] = [];
   for (const path of paths) {
     const localSha = localShas[path];
@@ -105,7 +123,9 @@ function diffThreeWay(
 /** rejects anything that isn't a plain, non-escaping relative path — remote tree entries come from a repo we don't control */
 export function isSafeRelPath(relPath: string): boolean {
   if (!relPath || relPath.startsWith("/")) return false;
-  return relPath.split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
+  return relPath
+    .split("/")
+    .every((segment) => segment !== "" && segment !== "." && segment !== "..");
 }
 
 async function loadRemoteTree(
@@ -129,7 +149,9 @@ async function loadRemoteTree(
   return { headSha, remoteShas };
 }
 
-async function computeLocalShas(files: Array<{ relPath: string; data: ArrayBuffer }>): Promise<Record<string, string>> {
+async function computeLocalShas(
+  files: Array<{ relPath: string; data: ArrayBuffer }>,
+): Promise<Record<string, string>> {
   const shas: Record<string, string> = {};
   for (const file of files) shas[file.relPath] = await computeBlobSha1(file.data);
   return shas;
@@ -140,7 +162,13 @@ async function loadDiff(
   syncRoot: string,
   client: GitHubClient,
   config: SyncConfig,
-): Promise<ThreeWayDiff & { headSha: string | null; files: Array<{ relPath: string; data: ArrayBuffer }>; nestedRepos: string[] }> {
+): Promise<
+  ThreeWayDiff & {
+    headSha: string | null;
+    files: Array<{ relPath: string; data: ArrayBuffer }>;
+    nestedRepos: string[];
+  }
+> {
   const { files, nestedRepos } = await collectTrackedFiles(fs, syncRoot);
   const localShas = await computeLocalShas(files);
   const { headSha, remoteShas } = await loadRemoteTree(client, config);
@@ -149,11 +177,25 @@ async function loadDiff(
   return { localShas, remoteShas, conflicts, headSha, files, nestedRepos };
 }
 
-export async function status(fs: Idbfs, syncRoot: string, client: GitHubClient, config: SyncConfig): Promise<StatusResult> {
-  const { localShas, remoteShas, conflicts, nestedRepos } = await loadDiff(fs, syncRoot, client, config);
+export async function status(
+  fs: Idbfs,
+  syncRoot: string,
+  client: GitHubClient,
+  config: SyncConfig,
+): Promise<StatusResult> {
+  const { localShas, remoteShas, conflicts, nestedRepos } = await loadDiff(
+    fs,
+    syncRoot,
+    client,
+    config,
+  );
   const state = await readState(fs, syncRoot);
-  const localChanged = Object.keys({ ...localShas, ...state.blobs }).filter((p) => localShas[p] !== state.blobs[p]);
-  const remoteChanged = Object.keys({ ...remoteShas, ...state.blobs }).filter((p) => remoteShas[p] !== state.blobs[p]);
+  const localChanged = Object.keys({ ...localShas, ...state.blobs }).filter(
+    (p) => localShas[p] !== state.blobs[p],
+  );
+  const remoteChanged = Object.keys({ ...remoteShas, ...state.blobs }).filter(
+    (p) => remoteShas[p] !== state.blobs[p],
+  );
   return { localChanged, remoteChanged, conflicts, skippedNestedRepos: nestedRepos };
 }
 
@@ -164,10 +206,21 @@ export async function push(
   config: SyncConfig,
   opts: { message?: string; force?: boolean; onProgress?: ProgressCallback } = {},
 ): Promise<PushResult> {
-  const { localShas, remoteShas, conflicts, headSha, files, nestedRepos } = await loadDiff(fs, syncRoot, client, config);
+  const { localShas, remoteShas, conflicts, headSha, files, nestedRepos } = await loadDiff(
+    fs,
+    syncRoot,
+    client,
+    config,
+  );
 
   if (conflicts.length > 0 && !opts.force) {
-    return { commitSha: "", uploaded: [], unchanged: [], conflicts, skippedNestedRepos: nestedRepos };
+    return {
+      commitSha: "",
+      uploaded: [],
+      unchanged: [],
+      conflicts,
+      skippedNestedRepos: nestedRepos,
+    };
   }
 
   const message = opts.message ?? `idbfs sync: ${new Date().toISOString()}`;
@@ -202,7 +255,11 @@ export async function push(
       if (remoteBlobShaSet.has(localSha)) {
         return { relPath: file.relPath, sha: localSha, uploaded: false };
       }
-      const sha = await client.createBlob(config.owner, config.repo, arrayBufferToBase64(file.data));
+      const sha = await client.createBlob(
+        config.owner,
+        config.repo,
+        arrayBufferToBase64(file.data),
+      );
       return { relPath: file.relPath, sha, uploaded: true };
     },
     opts.onProgress,
@@ -226,7 +283,13 @@ export async function push(
   }
 
   const treeSha = await client.createTree(config.owner, config.repo, treeEntries);
-  const commitSha = await client.createCommit(config.owner, config.repo, message, treeSha, freshHeadSha);
+  const commitSha = await client.createCommit(
+    config.owner,
+    config.repo,
+    message,
+    treeSha,
+    freshHeadSha,
+  );
 
   if (freshHeadSha === null) {
     await client.createRef(config.owner, config.repo, config.branch, commitSha);
@@ -239,7 +302,8 @@ export async function push(
   const nextBlobs: Record<string, string> = { ...state.blobs };
   for (const f of files) nextBlobs[f.relPath] = finalShas[f.relPath];
   for (const path of Object.keys(state.blobs)) {
-    if (!files.some((f) => f.relPath === path) && !conflicts.some((c) => c.path === path)) delete nextBlobs[path];
+    if (!files.some((f) => f.relPath === path) && !conflicts.some((c) => c.path === path))
+      delete nextBlobs[path];
   }
   const nextState: SyncState = {
     lastSyncedCommit: commitSha,
@@ -265,7 +329,12 @@ export async function pull(
   config: SyncConfig,
   opts: { forcePaths?: string[] | "all"; onProgress?: ProgressCallback } = {},
 ): Promise<PullResult> {
-  const { localShas, remoteShas, conflicts, headSha, nestedRepos } = await loadDiff(fs, syncRoot, client, config);
+  const { localShas, remoteShas, conflicts, headSha, nestedRepos } = await loadDiff(
+    fs,
+    syncRoot,
+    client,
+    config,
+  );
   const state = await readState(fs, syncRoot);
 
   const forceAll = opts.forcePaths === "all";
@@ -287,7 +356,8 @@ export async function pull(
 
       const remoteSha = remoteShas[path];
       const localSha = localShas[path];
-      if (remoteSha === localSha) return { path, kind: remoteSha !== undefined ? "unchanged" : "noop" };
+      if (remoteSha === localSha)
+        return { path, kind: remoteSha !== undefined ? "unchanged" : "noop" };
 
       const abs = join(syncRoot, path);
       if (remoteSha === undefined) {
@@ -334,19 +404,35 @@ export async function listBranches(client: GitHubClient, config: SyncConfig): Pr
   return client.listBranches(config.owner, config.repo);
 }
 
-export async function createBranch(client: GitHubClient, config: SyncConfig, name: string): Promise<void> {
+export async function createBranch(
+  client: GitHubClient,
+  config: SyncConfig,
+  name: string,
+): Promise<void> {
   const headSha = await client.getRef(config.owner, config.repo, config.branch);
-  if (!headSha) throw new Error(`current branch '${config.branch}' has no commits yet — push first`);
+  if (!headSha)
+    throw new Error(`current branch '${config.branch}' has no commits yet — push first`);
   await client.createRef(config.owner, config.repo, name, headSha);
 }
 
-export async function checkoutBranch(fs: Idbfs, syncRoot: string, config: SyncConfig, name: string): Promise<SyncConfig> {
+export async function checkoutBranch(
+  fs: Idbfs,
+  syncRoot: string,
+  config: SyncConfig,
+  name: string,
+): Promise<SyncConfig> {
   const next: SyncConfig = { ...config, branch: name };
   await writeConfig(fs, syncRoot, next);
   return next;
 }
 
-export async function initSyncRoot(fs: Idbfs, syncRoot: string, owner: string, repo: string, branch: string): Promise<SyncConfig> {
+export async function initSyncRoot(
+  fs: Idbfs,
+  syncRoot: string,
+  owner: string,
+  repo: string,
+  branch: string,
+): Promise<SyncConfig> {
   const config: SyncConfig = { version: 1, owner, repo, branch, remoteSubdir: "" };
   await writeConfig(fs, syncRoot, config);
   return config;
@@ -358,7 +444,11 @@ export async function initSyncRoot(fs: Idbfs, syncRoot: string, owner: string, r
  * `parentDir` itself. Refuses if that subdirectory already exists and has
  * content, the same way `git clone` does.
  */
-export async function prepareCloneTarget(fs: Idbfs, parentDir: string, repoName: string): Promise<string> {
+export async function prepareCloneTarget(
+  fs: Idbfs,
+  parentDir: string,
+  repoName: string,
+): Promise<string> {
   const targetDir = parentDir === "/" ? `/${repoName}` : `${parentDir}/${repoName}`;
   if (await fs.exists(targetDir)) {
     const entries = await fs.ls(targetDir);

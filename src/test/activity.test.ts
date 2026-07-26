@@ -8,7 +8,10 @@ describe("activity store", () => {
     setActivity(true, "pushing");
     setActivity(false);
     unsubscribe();
-    expect(seen).toEqual([{ busy: true, label: "pushing" }, { busy: false, label: undefined }]);
+    expect(seen).toEqual([
+      { busy: true, label: "pushing" },
+      { busy: false, label: undefined },
+    ]);
     expect(getActivity()).toEqual({ busy: false, label: undefined });
   });
 

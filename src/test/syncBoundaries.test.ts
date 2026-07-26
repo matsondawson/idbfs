@@ -58,7 +58,9 @@ describe("sync boundaries and dotfile placement", () => {
   it("prepareCloneTarget refuses to clone into a non-empty existing folder", async () => {
     await fs.mkdir("/taken");
     await fs.writeFile("/taken/existing.txt", "already here\n");
-    await expect(prepareCloneTarget(fs, "/", "taken")).rejects.toThrow(/already exists and is not empty/);
+    await expect(prepareCloneTarget(fs, "/", "taken")).rejects.toThrow(
+      /already exists and is not empty/,
+    );
   });
 
   it("prepareCloneTarget reuses an existing empty folder without erroring", async () => {

@@ -22,12 +22,17 @@ export async function openDB(name: string, version: number): Promise<IDBDatabase
       }
     };
     req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error ?? new Error(`failed to open IndexedDB database "${name}"`));
+    req.onerror = () =>
+      reject(req.error ?? new Error(`failed to open IndexedDB database "${name}"`));
     // fires when another open connection (e.g. a different tab) is holding
     // an older version and hasn't closed it — onsuccess/onerror never fire
     // on their own in this case, so without this the promise hangs forever
     req.onblocked = () =>
-      reject(new Error(`IndexedDB open request for "${name}" is blocked — close other tabs using this app and retry`));
+      reject(
+        new Error(
+          `IndexedDB open request for "${name}" is blocked — close other tabs using this app and retry`,
+        ),
+      );
   });
 }
 

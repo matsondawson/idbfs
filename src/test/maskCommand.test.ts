@@ -7,7 +7,9 @@ describe("maskSensitiveCommand", () => {
   });
 
   it("is case-insensitive and tolerant of extra whitespace", () => {
-    expect(maskSensitiveCommand("GH   AUTH   LOGIN   ghp_abc123")).toBe("GH   AUTH   LOGIN   ********");
+    expect(maskSensitiveCommand("GH   AUTH   LOGIN   ghp_abc123")).toBe(
+      "GH   AUTH   LOGIN   ********",
+    );
   });
 
   it("leaves unrelated commands untouched", () => {

@@ -39,7 +39,13 @@ export class GitHubClient {
   /** returns false (not thrown) when the update was rejected as non-fast-forward */
   async updateRef(owner: string, repo: string, branch: string, sha: string): Promise<boolean> {
     try {
-      await this.octokit.rest.git.updateRef({ owner, repo, ref: `heads/${branch}`, sha, force: false });
+      await this.octokit.rest.git.updateRef({
+        owner,
+        repo,
+        ref: `heads/${branch}`,
+        sha,
+        force: false,
+      });
       return true;
     } catch (e) {
       if (isStatus(e, 422) || isStatus(e, 409)) return false;
@@ -48,12 +54,25 @@ export class GitHubClient {
   }
 
   async listBranches(owner: string, repo: string): Promise<string[]> {
-    const branches = await this.octokit.paginate(this.octokit.rest.repos.listBranches, { owner, repo, per_page: 100 });
+    const branches = await this.octokit.paginate(this.octokit.rest.repos.listBranches, {
+      owner,
+      repo,
+      per_page: 100,
+    });
     return branches.map((b) => b.name);
   }
 
-  async getTreeRecursive(owner: string, repo: string, treeSha: string): Promise<Record<string, string>> {
-    const { data } = await this.octokit.rest.git.getTree({ owner, repo, tree_sha: treeSha, recursive: "true" });
+  async getTreeRecursive(
+    owner: string,
+    repo: string,
+    treeSha: string,
+  ): Promise<Record<string, string>> {
+    const { data } = await this.octokit.rest.git.getTree({
+      owner,
+      repo,
+      tree_sha: treeSha,
+      recursive: "true",
+    });
     const result: Record<string, string> = {};
     for (const entry of data.tree) {
       if (entry.type === "blob" && entry.path && entry.sha) result[entry.path] = entry.sha;
@@ -93,7 +112,12 @@ export class GitHubClient {
   }
 
   async createBlob(owner: string, repo: string, base64Content: string): Promise<string> {
-    const { data } = await this.octokit.rest.git.createBlob({ owner, repo, content: base64Content, encoding: "base64" });
+    const { data } = await this.octokit.rest.git.createBlob({
+      owner,
+      repo,
+      content: base64Content,
+      encoding: "base64",
+    });
     return data.sha;
   }
 
@@ -107,7 +131,13 @@ export class GitHubClient {
     return data.sha;
   }
 
-  async createCommit(owner: string, repo: string, message: string, treeSha: string, parentSha: string | null): Promise<string> {
+  async createCommit(
+    owner: string,
+    repo: string,
+    message: string,
+    treeSha: string,
+    parentSha: string | null,
+  ): Promise<string> {
     const { data } = await this.octokit.rest.git.createCommit({
       owner,
       repo,
@@ -124,5 +154,10 @@ function isNotFound(e: unknown): boolean {
 }
 
 function isStatus(e: unknown, status: number): boolean {
-  return typeof e === "object" && e !== null && "status" in e && (e as { status: unknown }).status === status;
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "status" in e &&
+    (e as { status: unknown }).status === status
+  );
 }
