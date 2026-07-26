@@ -22,6 +22,21 @@
 .idbfs-tree__toolbar {
   display: flex;
   align-items: center;
+  color: var(--idbfs-text-muted);
+  font-size: 12px;
+}
+
+.idbfs-tree__topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.idbfs-tree__gh-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .idbfs-tree__filterbar {

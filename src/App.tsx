@@ -6,9 +6,6 @@ import type { OutputLine } from "./commands";
 import { Terminal } from "./ui/Terminal";
 import { FileTree } from "./ui/FileTree";
 import { ghCommand } from "./github/commands";
-import { GhAuthButton } from "./github/GhAuthButton";
-import { GhContextMenuItems } from "./github/GhContextMenu";
-import { GhActivityIndicator } from "./github/GhActivityIndicator";
 import { GhTerminalStatusLine } from "./github/GhTerminalStatusLine";
 import { maskSensitiveCommand } from "./github/maskCommand";
 
@@ -127,20 +124,6 @@ export default function App() {
         cwd={cwd}
         onUploaded={handleUploaded}
         features={FEATURES}
-        toolbar={
-          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-            <GhAuthButton />
-            <GhActivityIndicator />
-          </div>
-        }
-        renderContextMenuExtra={(entry, close) => (
-          <GhContextMenuItems
-            fs={fs}
-            entry={entry}
-            onChanged={() => setRefreshKey((k) => k + 1)}
-            close={close}
-          />
-        )}
       />
       <Terminal
         lines={lines}
