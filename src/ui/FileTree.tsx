@@ -3,6 +3,9 @@ import type { Idbfs, ListEntry, IgnoreMatcher } from "../lib";
 import { ROOT_ID, mimeFromName, buildIgnoreMatcher } from "../lib";
 import { fileIconColor } from "./icons";
 import { useFileDrop, DropOverlay } from "./useFileDrop.tsx";
+import { GhAuthButton } from "../github/GhAuthButton";
+import { GhActivityIndicator } from "../github/GhActivityIndicator";
+import { GhContextMenuItems } from "../github/GhContextMenu";
 import "./FileTree.css";
 
 export type Feature = "github";
@@ -14,7 +17,9 @@ interface Props {
   onUploaded?: (names: string[]) => void;
   theme?: "light" | "dark";
   features?: Feature[];
+  /** Extra toolbar content, rendered after any feature-provided controls. */
   toolbar?: React.ReactNode;
+  /** Extra context-menu items, rendered after any feature-provided items. */
   renderContextMenuExtra?: (entry: ListEntry, close: () => void) => React.ReactNode;
 }
 
@@ -38,7 +43,7 @@ export function FileTree({
   onUploaded,
   theme = "dark",
   features = ["github"],
-  toolbar,
+  toolbar = "Files:",
   renderContextMenuExtra,
 }: Props) {
   const readOnly = fs.readOnly;
@@ -58,6 +63,9 @@ export function FileTree({
   const [showIgnored, setShowIgnored] = useState(false);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [ignoreMatcher, setIgnoreMatcher] = useState<IgnoreMatcher | null>(null);
+  // bumped by feature-provided actions (e.g. github pull) that change files
+  // without the host app knowing, so the tree can refresh itself
+  const [internalRefresh, setInternalRefresh] = useState(0);
   const filterMenuRef = useRef<HTMLDivElement>(null);
   const dragSourceIds = useRef<Set<string>>(new Set());
   const lastClickedId = useRef<string | null>(null);
@@ -107,7 +115,7 @@ export function FileTree({
       prev.forEach((id) => loadDir(id));
       return prev;
     });
-  }, [refreshKey, loadDir]);
+  }, [refreshKey, internalRefresh, loadDir]);
 
   useEffect(() => {
     void loadDir(ROOT_ID);
@@ -125,7 +133,7 @@ export function FileTree({
     return () => {
       cancelled = true;
     };
-  }, [fs, refreshKey, showIgnored]);
+  }, [fs, refreshKey, internalRefresh, showIgnored]);
 
   useEffect(() => {
     if (!filterMenuOpen) return;
@@ -737,38 +745,47 @@ export function FileTree({
       }}
     >
       <div className="idbfs-tree__topbar">
-        <div className="idbfs-tree__filterbar" ref={filterMenuRef}>
-          <button
-            type="button"
-            className="idbfs-tree__filter-btn"
-            onClick={() => setFilterMenuOpen((v) => !v)}
-            title="Filter which files are shown"
-          >
-            Filter ▾
-          </button>
-          {filterMenuOpen && (
-            <div className="idbfs-tree__filter-menu">
-              <label className="idbfs-tree__filter-option">
-                <input
-                  type="checkbox"
-                  checked={showHidden}
-                  onChange={(e) => setShowHidden(e.target.checked)}
-                />
-                Show hidden files
-              </label>
-              <label className="idbfs-tree__filter-option">
-                <input
-                  type="checkbox"
-                  checked={showIgnored}
-                  onChange={(e) => setShowIgnored(e.target.checked)}
-                />
-                Show gitignored files
-              </label>
+        {toolbar && <div className="idbfs-tree__toolbar">{toolbar}</div>}
+
+        <div className="idbfs-tree__topbar-right">
+          <div className="idbfs-tree__filterbar" ref={filterMenuRef}>
+            <button
+              type="button"
+              className="idbfs-tree__filter-btn"
+              onClick={() => setFilterMenuOpen((v) => !v)}
+              title="Filter which files are shown"
+            >
+              Filter ▾
+            </button>
+            {filterMenuOpen && (
+              <div className="idbfs-tree__filter-menu">
+                <label className="idbfs-tree__filter-option">
+                  <input
+                    type="checkbox"
+                    checked={showHidden}
+                    onChange={(e) => setShowHidden(e.target.checked)}
+                  />
+                  Show hidden files
+                </label>
+                <label className="idbfs-tree__filter-option">
+                  <input
+                    type="checkbox"
+                    checked={showIgnored}
+                    onChange={(e) => setShowIgnored(e.target.checked)}
+                  />
+                  Show gitignored files
+                </label>
+              </div>
+            )}
+          </div>
+
+          {hasGithub && (
+            <div className="idbfs-tree__gh-controls">
+              <GhAuthButton />
+              <GhActivityIndicator />
             </div>
           )}
         </div>
-
-        {hasGithub && toolbar && <div className="idbfs-tree__toolbar">{toolbar}</div>}
       </div>
 
       <div
@@ -859,7 +876,15 @@ export function FileTree({
                 Download
               </div>
             )}
-            {hasGithub && renderContextMenuExtra?.(contextMenu.entry, () => setContextMenu(null))}
+            {hasGithub && (
+              <GhContextMenuItems
+                fs={fs}
+                entry={contextMenu.entry}
+                onChanged={() => setInternalRefresh((k) => k + 1)}
+                close={() => setContextMenu(null)}
+              />
+            )}
+            {renderContextMenuExtra?.(contextMenu.entry, () => setContextMenu(null))}
             {!readOnly && canDelete && (
               <>
                 <div className="idbfs-tree__divider" />

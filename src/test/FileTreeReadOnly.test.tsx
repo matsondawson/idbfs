@@ -52,7 +52,32 @@ describe("FileTree readOnly / features", () => {
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
-  it("hides the github toolbar and context-menu extras when the github feature is disabled", async () => {
+  it("hides the built-in github toolbar and context-menu items when the github feature is disabled", async () => {
+    await seed();
+    const fs = await new Idbfs({ dbName }).init();
+    await fs.mkdir("/proj");
+    const { container } = render(<FileTree fs={fs} refreshKey={0} features={[]} />);
+    const row = await screen.findByText("proj");
+    expect(screen.queryByText("github: sign in")).toBeNull();
+    stubPopover(container);
+    fireEvent.contextMenu(row);
+    expect(await screen.findByText("Copy")).not.toBeNull();
+    expect(screen.queryByText(/GitHub:/)).toBeNull();
+  });
+
+  it("shows the built-in github toolbar and context-menu items by default", async () => {
+    await seed();
+    const fs = await new Idbfs({ dbName }).init();
+    await fs.mkdir("/proj");
+    const { container } = render(<FileTree fs={fs} refreshKey={0} />);
+    expect(await screen.findByText("github: sign in")).not.toBeNull();
+    const row = await screen.findByText("proj");
+    stubPopover(container);
+    fireEvent.contextMenu(row);
+    expect(await screen.findByText("GitHub: Clone repo into new folder...")).not.toBeNull();
+  });
+
+  it("renders custom toolbar and context-menu extras regardless of features", async () => {
     await seed();
     const fs = await new Idbfs({ dbName }).init();
     const { container } = render(
@@ -60,22 +85,14 @@ describe("FileTree readOnly / features", () => {
         fs={fs}
         refreshKey={0}
         features={[]}
-        toolbar={<button>github: sign in</button>}
-        renderContextMenuExtra={() => <div>GitHub: Push</div>}
+        toolbar={<button>my tool</button>}
+        renderContextMenuExtra={() => <div>my extra</div>}
       />,
     );
+    expect(await screen.findByText("my tool")).not.toBeNull();
     const row = await screen.findByText("hello.txt");
-    expect(screen.queryByText("github: sign in")).toBeNull();
     stubPopover(container);
     fireEvent.contextMenu(row);
-    expect(await screen.findByText("Copy")).not.toBeNull();
-    expect(screen.queryByText("GitHub: Push")).toBeNull();
-  });
-
-  it("shows the github toolbar by default", async () => {
-    await seed();
-    const fs = await new Idbfs({ dbName }).init();
-    render(<FileTree fs={fs} refreshKey={0} toolbar={<button>github: sign in</button>} />);
-    expect(await screen.findByText("github: sign in")).not.toBeNull();
+    expect(await screen.findByText("my extra")).not.toBeNull();
   });
 });
