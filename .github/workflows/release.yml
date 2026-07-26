@@ -1,8 +1,10 @@
 name: Release
 
+# Manual trigger only: merging PRs never auto-publishes. Run from the
+# Actions tab (branch: master) to release everything merged since the
+# last tag.
 on:
-  push:
-    branches: [master]
+  workflow_dispatch:
 
 concurrency:
   group: release
