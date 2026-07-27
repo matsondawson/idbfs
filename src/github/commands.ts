@@ -16,6 +16,7 @@ import {
 } from "./sync";
 import { parseRepoSpec } from "./repoSpec";
 import { withActivity } from "./activity";
+import { formatGhError } from "./errors";
 import type { SyncConfig, ConflictInfo } from "./types";
 
 function text(t: string): OutputLine {
@@ -28,13 +29,10 @@ function ok(output: OutputLine[]): CommandResult {
   return { output };
 }
 
-async function requireContext(
+async function resolveSyncContext(
   fs: Idbfs,
   cwd: string,
-): Promise<{ syncRoot: string; config: SyncConfig; client: GitHubClient } | OutputLine[]> {
-  const token = getToken();
-  if (!token) return [error("not authenticated — run `gh auth login <token>` first")];
-
+): Promise<{ syncRoot: string; config: SyncConfig } | OutputLine[]> {
   const syncRoot = await findSyncRoot(fs, cwd);
   if (!syncRoot)
     return [
@@ -47,7 +45,14 @@ async function requireContext(
   const config = await readConfig(fs, syncRoot);
   if (!config) return [error(`missing ${"`"}.githubsync.json${"`"} at ${syncRoot}`)];
 
-  return { syncRoot, config, client: new GitHubClient(token) };
+  return { syncRoot, config };
+}
+
+/** push/status/branch need write access or a higher rate limit — clone/pull work anonymously for public repos */
+function requireContextToken(): string | OutputLine[] {
+  const token = getToken();
+  if (!token) return [error("not authenticated — run `gh auth login <token>` first")];
+  return token;
 }
 
 function fmtConflicts(conflicts: ConflictInfo[]): OutputLine[] {
@@ -79,7 +84,7 @@ async function authCommand(args: string[]): Promise<CommandResult> {
         setToken(token);
         return ok([text(`logged in as ${identity.login}`)]);
       } catch (e) {
-        return ok([error(String(e))]);
+        return ok([error(formatGhError(e))]);
       }
     }
     case "logout":
@@ -92,7 +97,7 @@ async function authCommand(args: string[]): Promise<CommandResult> {
         const identity = await whoami(token);
         return ok([text(`authenticated as ${identity.login}`)]);
       } catch (e) {
-        return ok([error(String(e))]);
+        return ok([error(formatGhError(e))]);
       }
     }
     default:
@@ -124,7 +129,23 @@ async function initCommand(fs: Idbfs, cwd: string, args: string[]): Promise<Comm
   if (!parsed) return ok([error("usage: gh init <owner>/<repo>|<github-url> [branch] [--force]")]);
   const nestedWarning = await warnIfNested(fs, cwd, force);
   if (nestedWarning) return ok(nestedWarning);
-  const config = await initSyncRoot(fs, cwd, parsed.owner, parsed.repo, branch ?? "main");
+  // the repo may not exist yet (this can bootstrap a brand-new remote on
+  // first push), so a 404 falls back to "main" rather than blocking — but
+  // only a 404: any other failure (rate limit, network) must surface, or a
+  // repo whose real default is e.g. "master" gets silently configured wrong
+  let resolvedBranch = branch;
+  if (!resolvedBranch) {
+    try {
+      resolvedBranch = await new GitHubClient(getToken() ?? undefined).getDefaultBranch(
+        parsed.owner,
+        parsed.repo,
+      );
+    } catch (e) {
+      if ((e as { status?: unknown }).status !== 404) return ok([error(formatGhError(e))]);
+      resolvedBranch = "main";
+    }
+  }
+  const config = await initSyncRoot(fs, cwd, parsed.owner, parsed.repo, resolvedBranch);
   return ok([
     text(`initialized sync root at ${cwd} -> ${config.owner}/${config.repo}@${config.branch}`),
   ]);
@@ -135,15 +156,18 @@ async function cloneCommand(fs: Idbfs, cwd: string, args: string[]): Promise<Com
   const [spec, branch] = args.filter((a) => a !== "--force");
   const parsed = spec ? parseRepoSpec(spec) : null;
   if (!parsed) return ok([error("usage: gh clone <owner>/<repo>|<github-url> [branch] [--force]")]);
-  const token = getToken();
-  if (!token) return ok([error("not authenticated — run `gh auth login <token>` first")]);
   const nestedWarning = await warnIfNested(fs, cwd, force);
   if (nestedWarning) return ok(nestedWarning);
 
+  // no token required — public repos are readable anonymously, just at a
+  // much lower rate limit; private repos will 404 and surface below
+  const client = new GitHubClient(getToken() ?? undefined);
   try {
+    // never assume "main" — plenty of repos still default to "master" or
+    // something else, and guessing wrong silently "clones" zero files
+    const resolvedBranch = branch ?? (await client.getDefaultBranch(parsed.owner, parsed.repo));
     const targetDir = await prepareCloneTarget(fs, cwd, parsed.repo);
-    const config = await initSyncRoot(fs, targetDir, parsed.owner, parsed.repo, branch ?? "main");
-    const client = new GitHubClient(token);
+    const config = await initSyncRoot(fs, targetDir, parsed.owner, parsed.repo, resolvedBranch);
     const result = await withActivity(`Cloning ${parsed.owner}/${parsed.repo}...`, (onProgress) =>
       pull(fs, targetDir, client, config, { onProgress }),
     );
@@ -162,7 +186,7 @@ async function cloneCommand(fs: Idbfs, cwd: string, args: string[]): Promise<Com
     lines.push(...fmtNestedRepos(result.skippedNestedRepos));
     return ok(lines);
   } catch (e) {
-    return ok([error(String(e))]);
+    return ok([error(formatGhError(e))]);
   }
 }
 
@@ -180,16 +204,18 @@ async function remoteCommand(fs: Idbfs, cwd: string): Promise<CommandResult> {
 }
 
 async function pushCommand(fs: Idbfs, cwd: string, args: string[]): Promise<CommandResult> {
-  const ctx = await requireContext(fs, cwd);
+  const ctx = await resolveSyncContext(fs, cwd);
   if (Array.isArray(ctx)) return ok(ctx);
+  const token = requireContextToken();
+  if (Array.isArray(token)) return ok(token);
+  const client = new GitHubClient(token);
   const force = args.includes("--force");
   const mIdx = args.indexOf("-m");
   const message = mIdx !== -1 ? args.slice(mIdx + 1).join(" ") : undefined;
   try {
     const result = await withActivity(
       `Pushing to ${ctx.config.owner}/${ctx.config.repo}...`,
-      (onProgress) =>
-        push(fs, ctx.syncRoot, ctx.client, ctx.config, { message, force, onProgress }),
+      (onProgress) => push(fs, ctx.syncRoot, client, ctx.config, { message, force, onProgress }),
     );
     if (result.conflicts.length > 0) {
       return ok([
@@ -205,13 +231,15 @@ async function pushCommand(fs: Idbfs, cwd: string, args: string[]): Promise<Comm
       ...fmtNestedRepos(result.skippedNestedRepos),
     ]);
   } catch (e) {
-    return ok([error(String(e))]);
+    return ok([error(formatGhError(e))]);
   }
 }
 
 async function pullCommand(fs: Idbfs, cwd: string, args: string[]): Promise<CommandResult> {
-  const ctx = await requireContext(fs, cwd);
+  const ctx = await resolveSyncContext(fs, cwd);
   if (Array.isArray(ctx)) return ok(ctx);
+  // no token required — see cloneCommand
+  const client = new GitHubClient(getToken() ?? undefined);
   let forcePaths: string[] | "all" | undefined;
   if (args.includes("--force-all")) forcePaths = "all";
   else {
@@ -221,7 +249,7 @@ async function pullCommand(fs: Idbfs, cwd: string, args: string[]): Promise<Comm
   try {
     const result = await withActivity(
       `Pulling from ${ctx.config.owner}/${ctx.config.repo}...`,
-      (onProgress) => pull(fs, ctx.syncRoot, ctx.client, ctx.config, { forcePaths, onProgress }),
+      (onProgress) => pull(fs, ctx.syncRoot, client, ctx.config, { forcePaths, onProgress }),
     );
     const lines: OutputLine[] = [
       text(`pulled: ${result.written.length} written, ${result.unchanged.length} unchanged`),
@@ -237,17 +265,20 @@ async function pullCommand(fs: Idbfs, cwd: string, args: string[]): Promise<Comm
     lines.push(...fmtNestedRepos(result.skippedNestedRepos));
     return ok(lines);
   } catch (e) {
-    return ok([error(String(e))]);
+    return ok([error(formatGhError(e))]);
   }
 }
 
 async function statusCommand(fs: Idbfs, cwd: string): Promise<CommandResult> {
-  const ctx = await requireContext(fs, cwd);
+  const ctx = await resolveSyncContext(fs, cwd);
   if (Array.isArray(ctx)) return ok(ctx);
+  const token = requireContextToken();
+  if (Array.isArray(token)) return ok(token);
+  const client = new GitHubClient(token);
   try {
     const result = await withActivity(
       `Checking status of ${ctx.config.owner}/${ctx.config.repo}...`,
-      () => status(fs, ctx.syncRoot, ctx.client, ctx.config),
+      () => status(fs, ctx.syncRoot, client, ctx.config),
     );
     const lines: OutputLine[] = [];
     lines.push(
@@ -264,32 +295,35 @@ async function statusCommand(fs: Idbfs, cwd: string): Promise<CommandResult> {
     lines.push(...fmtNestedRepos(result.skippedNestedRepos));
     return ok(lines);
   } catch (e) {
-    return ok([error(String(e))]);
+    return ok([error(formatGhError(e))]);
   }
 }
 
 async function branchCommand(fs: Idbfs, cwd: string, args: string[]): Promise<CommandResult> {
-  const ctx = await requireContext(fs, cwd);
+  const ctx = await resolveSyncContext(fs, cwd);
   if (Array.isArray(ctx)) return ok(ctx);
+  const token = requireContextToken();
+  if (Array.isArray(token)) return ok(token);
+  const client = new GitHubClient(token);
   try {
     if (args[0]) {
       await withActivity(`Creating branch ${args[0]}...`, () =>
-        createBranch(ctx.client, ctx.config, args[0]),
+        createBranch(client, ctx.config, args[0]),
       );
       return ok([text(`created branch ${args[0]} from ${ctx.config.branch}`)]);
     }
     const branches = await withActivity(
       `Loading branches for ${ctx.config.owner}/${ctx.config.repo}...`,
-      () => listBranches(ctx.client, ctx.config),
+      () => listBranches(client, ctx.config),
     );
     return ok(branches.map((b) => text(b === ctx.config.branch ? `* ${b}` : `  ${b}`)));
   } catch (e) {
-    return ok([error(String(e))]);
+    return ok([error(formatGhError(e))]);
   }
 }
 
 async function checkoutCommand(fs: Idbfs, cwd: string, args: string[]): Promise<CommandResult> {
-  const ctx = await requireContext(fs, cwd);
+  const ctx = await resolveSyncContext(fs, cwd);
   if (Array.isArray(ctx)) return ok(ctx);
   if (!args[0]) return ok([error("usage: gh checkout <branch>")]);
   await checkoutBranch(fs, ctx.syncRoot, ctx.config, args[0]);

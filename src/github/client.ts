@@ -10,14 +10,45 @@ export interface TreeEntry {
 
 export class GitHubClient {
   private octokit: Octokit;
+  private readonly hasToken: boolean;
 
-  constructor(token: string) {
+  /** omit token for unauthenticated, read-only access to public repos (lower rate limit) */
+  constructor(token?: string) {
     this.octokit = new Octokit({ auth: token });
+    this.hasToken = Boolean(token);
+  }
+
+  get isAuthenticated(): boolean {
+    return this.hasToken;
   }
 
   async whoami(): Promise<string> {
     const { data } = await this.octokit.rest.users.getAuthenticated();
     return data.login;
+  }
+
+  /** GitHub repos default to `main` for new ones, but plenty of older or imported repos use `master` (or something else entirely) — never assume, always ask */
+  async getDefaultBranch(owner: string, repo: string): Promise<string> {
+    const { data } = await this.octokit.rest.repos.get({ owner, repo });
+    return data.default_branch;
+  }
+
+  /**
+   * Fetches a file's content straight from GitHub's raw-content CDN instead
+   * of the REST API. Unlike every other call here, this isn't counted
+   * against the api.github.com rate limit at all — which matters because
+   * it's the one call that scales with repo size (one per file) rather than
+   * being fixed-cost like the tree walk. `commitSha` (not a branch name)
+   * keeps it correct even if the branch moves mid-pull, and doubles as a
+   * permanent CDN cache key.
+   */
+  async getRawFile(owner: string, repo: string, commitSha: string, path: string): Promise<ArrayBuffer> {
+    const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+    const res = await fetch(
+      `https://raw.githubusercontent.com/${owner}/${repo}/${commitSha}/${encodedPath}`,
+    );
+    if (!res.ok) throw new Error(`raw content fetch failed: ${res.status} ${res.statusText} (${path})`);
+    return res.arrayBuffer();
   }
 
   async getRef(owner: string, repo: string, branch: string): Promise<string | null> {

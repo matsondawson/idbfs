@@ -4,18 +4,10 @@ import { getToken } from "./auth";
 import { GitHubClient } from "./client";
 import { findSyncRoot } from "./configDiscovery";
 import { readConfig } from "./syncMeta";
-import {
-  push,
-  pull,
-  status,
-  initSyncRoot,
-  listBranches,
-  createBranch,
-  checkoutBranch,
-  prepareCloneTarget,
-} from "./sync";
-import { parseRepoSpec } from "./repoSpec";
+import { push, pull, status } from "./sync";
 import { withActivity } from "./activity";
+import { formatGhError } from "./errors";
+import { openDialog } from "./dialogStore";
 import type { SyncConfig } from "./types";
 
 interface Resolved {
@@ -78,45 +70,14 @@ export function GhContextMenuItems({ fs, entry, onChanged, close }: GhContextMen
 
   if (entry.type !== "dir" || resolved === undefined) return null;
 
-  const handleClone = async () => {
+  const handleClone = () => {
     close();
-    const token = requireToken();
-    if (!token) return;
-    const spec = window.prompt(
-      "Clone which repo? (owner/repo or github.com URL) — creates a new subfolder here",
-    );
-    if (!spec) return;
-    const parsed = parseRepoSpec(spec);
-    if (!parsed) return notify(["invalid repo — use owner/repo or a github.com URL"]);
-    const branch = window.prompt("Branch:", "main") || "main";
-    try {
-      const targetDir = await prepareCloneTarget(fs, entry.path, parsed.repo);
-      const config = await initSyncRoot(fs, targetDir, parsed.owner, parsed.repo, branch);
-      const result = await withActivity(`Cloning ${parsed.owner}/${parsed.repo}...`, (onProgress) =>
-        pull(fs, targetDir, new GitHubClient(token), config, { onProgress }),
-      );
-      onChanged?.();
-      notify([
-        `cloned ${config.owner}/${config.repo}@${config.branch} into ${targetDir}`,
-        `${result.written.length} written, ${result.unchanged.length} unchanged`,
-      ]);
-    } catch (e) {
-      notify([String(e)]);
-    }
+    openDialog({ kind: "clone", parentPath: entry.path });
   };
 
-  const handleInit = async () => {
+  const handleInit = () => {
     close();
-    const spec = window.prompt(
-      "Configure this folder to sync with which repo? (owner/repo or github.com URL)",
-    );
-    if (!spec) return;
-    const parsed = parseRepoSpec(spec);
-    if (!parsed) return notify(["invalid repo — use owner/repo or a github.com URL"]);
-    const branch = window.prompt("Branch:", "main") || "main";
-    const config = await initSyncRoot(fs, entry.path, parsed.owner, parsed.repo, branch);
-    onChanged?.();
-    notify([`configured ${entry.path} -> ${config.owner}/${config.repo}@${config.branch}`]);
+    openDialog({ kind: "init", parentPath: entry.path });
   };
 
   const handlePush = async () => {
@@ -141,20 +102,21 @@ export function GhContextMenuItems({ fs, entry, onChanged, close }: GhContextMen
         ]);
       }
     } catch (e) {
-      notify([String(e)]);
+      onChanged?.();
+      notify([formatGhError(e)]);
     }
   };
 
   const handlePull = async () => {
     close();
     if (!resolved) return;
-    const token = requireToken();
-    if (!token) return;
+    // no token required — public repos are readable anonymously, just at a
+    // much lower rate limit; private repos will 404 and surface as an error
+    const client = new GitHubClient(getToken() ?? undefined);
     try {
       const result = await withActivity(
         `Pulling from ${resolved.config.owner}/${resolved.config.repo}...`,
-        (onProgress) =>
-          pull(fs, resolved.syncRoot, new GitHubClient(token), resolved.config, { onProgress }),
+        (onProgress) => pull(fs, resolved.syncRoot, client, resolved.config, { onProgress }),
       );
       onChanged?.();
       const lines = [
@@ -166,7 +128,10 @@ export function GhContextMenuItems({ fs, entry, onChanged, close }: GhContextMen
       lines.push(...fmtNested(result.skippedNestedRepos));
       notify(lines);
     } catch (e) {
-      notify([String(e)]);
+      // a failed pull can still have written some files before the error
+      // (e.g. rate limit mid-transfer) — refresh so those aren't hidden
+      onChanged?.();
+      notify([formatGhError(e)]);
     }
   };
 
@@ -189,43 +154,15 @@ export function GhContextMenuItems({ fs, entry, onChanged, close }: GhContextMen
         ...fmtNested(result.skippedNestedRepos),
       ]);
     } catch (e) {
-      notify([String(e)]);
+      onChanged?.();
+      notify([formatGhError(e)]);
     }
   };
 
-  const handleBranch = async () => {
+  const handleBranch = () => {
     close();
     if (!resolved) return;
-    const token = requireToken();
-    if (!token) return;
-    try {
-      const client = new GitHubClient(token);
-      const branches = await withActivity(
-        `Loading branches for ${resolved.config.owner}/${resolved.config.repo}...`,
-        () => listBranches(client, resolved.config),
-      );
-      const name = window.prompt(
-        `Branches: ${branches.join(", ")}\n\nSwitch to (or type a new name to create it):`,
-        resolved.config.branch,
-      );
-      if (!name || name === resolved.config.branch) return;
-      if (!branches.includes(name)) {
-        if (
-          !window.confirm(
-            `Branch '${name}' doesn't exist — create it from ${resolved.config.branch}?`,
-          )
-        )
-          return;
-        await withActivity(`Creating branch ${name}...`, () =>
-          createBranch(client, resolved.config, name),
-        );
-      }
-      await checkoutBranch(fs, resolved.syncRoot, resolved.config, name);
-      onChanged?.();
-      notify([`switched to ${name} — run Pull to sync its contents`]);
-    } catch (e) {
-      notify([String(e)]);
-    }
+    openDialog({ kind: "switchBranch", syncRoot: resolved.syncRoot, config: resolved.config });
   };
 
   return (
@@ -242,16 +179,16 @@ export function GhContextMenuItems({ fs, entry, onChanged, close }: GhContextMen
           <div className="idbfs-tree__menu-item" onClick={() => void handleStatus()}>
             GitHub: Status
           </div>
-          <div className="idbfs-tree__menu-item" onClick={() => void handleBranch()}>
+          <div className="idbfs-tree__menu-item" onClick={handleBranch}>
             GitHub: Switch branch...
           </div>
         </>
       ) : (
         <>
-          <div className="idbfs-tree__menu-item" onClick={() => void handleClone()}>
+          <div className="idbfs-tree__menu-item" onClick={handleClone}>
             GitHub: Clone repo into new folder...
           </div>
-          <div className="idbfs-tree__menu-item" onClick={() => void handleInit()}>
+          <div className="idbfs-tree__menu-item" onClick={handleInit}>
             GitHub: Configure repo here...
           </div>
         </>
