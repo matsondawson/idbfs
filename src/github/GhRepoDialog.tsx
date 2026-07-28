@@ -258,7 +258,9 @@ export function GhRepoDialog({ fs, onChanged }: Props) {
             .map((value) => ({ value, create: false }));
           const showCreate =
             state.allowFreeText && filter.trim() !== "" && !state.branches.includes(filter.trim());
-          const items: Item[] = showCreate ? [...matches, { value: filter.trim(), create: true }] : matches;
+          const items: Item[] = showCreate
+            ? [...matches, { value: filter.trim(), create: true }]
+            : matches;
           const activeIndex = Math.min(highlighted, Math.max(items.length - 1, 0));
 
           return (
@@ -295,7 +297,9 @@ export function GhRepoDialog({ fs, onChanged }: Props) {
               <ul className="idbfs-gh-dialog__list" id="idbfs-gh-dialog-listbox" role="listbox">
                 {items.length === 0 && (
                   <li className="idbfs-gh-dialog__empty">
-                    {state.branches.length === 0 ? "no branches — repo may be empty" : "no matching branches"}
+                    {state.branches.length === 0
+                      ? "no branches — repo may be empty"
+                      : "no matching branches"}
                   </li>
                 )}
                 {items.map((item, i) => (
@@ -314,7 +318,8 @@ export function GhRepoDialog({ fs, onChanged }: Props) {
                       `Create branch "${item.value}"`
                     ) : item.value === state.pinned?.branch ? (
                       <>
-                        {item.value} <span className="idbfs-gh-dialog__pinned">({state.pinned.label})</span>
+                        {item.value}{" "}
+                        <span className="idbfs-gh-dialog__pinned">({state.pinned.label})</span>
                       </>
                     ) : (
                       item.value
@@ -330,7 +335,9 @@ export function GhRepoDialog({ fs, onChanged }: Props) {
                 <button
                   type="button"
                   disabled={items.length === 0}
-                  onClick={() => items[activeIndex] && void runConfirm(items[activeIndex].value, state)}
+                  onClick={() =>
+                    items[activeIndex] && void runConfirm(items[activeIndex].value, state)
+                  }
                 >
                   {state.confirmLabel}
                 </button>

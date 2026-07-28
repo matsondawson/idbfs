@@ -3,9 +3,7 @@ function isRateLimitError(e: unknown): boolean {
   const status = (e as { status?: unknown }).status;
   const message = (e as { message?: unknown }).message;
   return (
-    (status === 403 || status === 429) &&
-    typeof message === "string" &&
-    /rate limit/i.test(message)
+    (status === 403 || status === 429) && typeof message === "string" && /rate limit/i.test(message)
   );
 }
 

@@ -13,9 +13,7 @@ describe("GitHubClient", () => {
   });
 
   it("getRawFile fetches from the raw-content CDN by commit sha, url-encoding path segments", async () => {
-    const fetchMock = vi.fn(
-      async () => new Response("hello", { status: 200 }),
-    );
+    const fetchMock = vi.fn(async () => new Response("hello", { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
     const client = new GitHubClient();

@@ -42,12 +42,18 @@ export class GitHubClient {
    * keeps it correct even if the branch moves mid-pull, and doubles as a
    * permanent CDN cache key.
    */
-  async getRawFile(owner: string, repo: string, commitSha: string, path: string): Promise<ArrayBuffer> {
+  async getRawFile(
+    owner: string,
+    repo: string,
+    commitSha: string,
+    path: string,
+  ): Promise<ArrayBuffer> {
     const encodedPath = path.split("/").map(encodeURIComponent).join("/");
     const res = await fetch(
       `https://raw.githubusercontent.com/${owner}/${repo}/${commitSha}/${encodedPath}`,
     );
-    if (!res.ok) throw new Error(`raw content fetch failed: ${res.status} ${res.statusText} (${path})`);
+    if (!res.ok)
+      throw new Error(`raw content fetch failed: ${res.status} ${res.statusText} (${path})`);
     return res.arrayBuffer();
   }
 
