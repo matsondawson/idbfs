@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import "fake-indexeddb/auto";
 import { Idbfs } from "../lib";
 import { isSafeRelPath, pull, initSyncRoot } from "../github/sync";
@@ -33,6 +33,7 @@ describe("isSafeRelPath", () => {
 
 function fakeClient(tree: Record<string, string>, blobs: Record<string, string>): GitHubClient {
   return {
+    isAuthenticated: true,
     getRef: async () => "deadbeef",
     getCommitTreeSha: async () => "treesha",
     getTreeRecursive: async () => tree,
@@ -93,5 +94,34 @@ describe("pull() refuses to let a remote repo overwrite sync control files or es
     expect(await fs.exists("/escaped.txt")).toBe(false);
     const safe = await fs.readFile("/nested/safe.txt");
     expect(new TextDecoder().decode(safe.data)).toBe("ok\n");
+  });
+});
+
+describe("pull() picks the raw-content CDN over the REST API when unauthenticated", () => {
+  let fs: Idbfs;
+
+  beforeEach(async () => {
+    fs = await new Idbfs({ dbName: `anon-pull-${Math.random()}` }).init();
+  });
+
+  it("calls getRawFile, not getBlob, when the client has no token", async () => {
+    const config = await initSyncRoot(fs, "/", "owner", "repo", "main");
+    const getBlob = vi.fn();
+    const getRawFile = vi.fn(async () => new TextEncoder().encode("hi\n").buffer as ArrayBuffer);
+    const client = {
+      isAuthenticated: false,
+      getRef: async () => "deadbeef",
+      getCommitTreeSha: async () => "treesha",
+      getTreeRecursive: async () => ({ "hello.txt": "hello-sha" }),
+      getBlob,
+      getRawFile,
+    } as unknown as GitHubClient;
+
+    await pull(fs, "/", client, config);
+
+    expect(getBlob).not.toHaveBeenCalled();
+    expect(getRawFile).toHaveBeenCalledWith("owner", "repo", "deadbeef", "hello.txt");
+    const helloFile = await fs.readFile("/hello.txt");
+    expect(new TextDecoder().decode(helloFile.data)).toBe("hi\n");
   });
 });

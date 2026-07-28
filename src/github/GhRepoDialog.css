@@ -1,0 +1,113 @@
+.idbfs-gh-dialog {
+  background: var(--idbfs-surface);
+  color: var(--idbfs-text);
+  border: 1px solid var(--idbfs-border);
+  border-radius: 8px;
+  padding: 0;
+  min-width: 320px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.idbfs-gh-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.idbfs-gh-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+}
+
+.idbfs-gh-dialog__title {
+  font-weight: 600;
+  color: var(--idbfs-text);
+}
+
+.idbfs-gh-dialog__input {
+  background: var(--idbfs-input-bg);
+  border: 1px solid var(--idbfs-border);
+  border-radius: 4px;
+  color: var(--idbfs-text);
+  font-family: inherit;
+  font-size: inherit;
+  outline: none;
+  padding: 6px 8px;
+  width: 280px;
+}
+
+.idbfs-gh-dialog__input:focus {
+  border-color: var(--idbfs-accent);
+}
+
+.idbfs-gh-dialog__list {
+  list-style: none;
+  margin: 0;
+  padding: 2px 0;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--idbfs-border-light);
+  border-radius: 4px;
+}
+
+.idbfs-gh-dialog__item {
+  padding: 5px 8px;
+  cursor: pointer;
+  color: var(--idbfs-text);
+}
+
+.idbfs-gh-dialog__item--active,
+.idbfs-gh-dialog__item:hover {
+  background: var(--idbfs-surface-hover);
+}
+
+.idbfs-gh-dialog__pinned {
+  color: var(--idbfs-text-muted);
+  font-size: 11px;
+}
+
+.idbfs-gh-dialog__empty {
+  padding: 8px;
+  color: var(--idbfs-text-muted);
+  font-style: italic;
+}
+
+.idbfs-gh-dialog__error {
+  color: var(--idbfs-error);
+  font-size: 12px;
+}
+
+.idbfs-gh-dialog__working,
+.idbfs-gh-dialog__done {
+  color: var(--idbfs-text-muted);
+  padding: 6px 0;
+}
+
+.idbfs-gh-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.idbfs-gh-dialog__actions button {
+  background: transparent;
+  border: 1px solid var(--idbfs-border);
+  border-radius: 4px;
+  color: var(--idbfs-text);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+.idbfs-gh-dialog__actions button:hover:not(:disabled) {
+  background: var(--idbfs-surface-hover);
+}
+
+.idbfs-gh-dialog__actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

@@ -366,8 +366,14 @@ export async function pull(
         return { path, kind: "deleted" };
       }
 
-      const base64 = await client.getBlob(config.owner, config.repo, remoteSha);
-      await fs.writeFile(abs, base64ToArrayBuffer(base64));
+      // unauthenticated: fetch bytes from the raw-content CDN instead of the
+      // REST API, since that's the one call that scales with repo size and
+      // would otherwise blow through the unauthenticated rate limit. headSha
+      // is non-null here — remoteSha is only ever set once a ref was found.
+      const data = client.isAuthenticated
+        ? base64ToArrayBuffer(await client.getBlob(config.owner, config.repo, remoteSha))
+        : await client.getRawFile(config.owner, config.repo, headSha!, toRemotePath(config, path));
+      await fs.writeFile(abs, data);
       return { path, kind: "written", sha: remoteSha };
     },
     opts.onProgress,

@@ -51,4 +51,20 @@ describe("mapLimit", () => {
       }),
     ).rejects.toThrow("boom");
   });
+
+  it("stops starting new items once one fails, without unhandled rejections", async () => {
+    const started: number[] = [];
+    const items = Array.from({ length: 10 }, (_, i) => i);
+    await expect(
+      mapLimit(items, 2, async (i) => {
+        started.push(i);
+        if (i === 0) throw new Error("boom");
+        await new Promise((r) => setTimeout(r, 20));
+        return i;
+      }),
+    ).rejects.toThrow("boom");
+    // only the items already in flight when the first failure landed should
+    // have started — the rest of the queue must never be touched
+    expect(started.length).toBeLessThan(items.length);
+  });
 });

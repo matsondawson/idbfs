@@ -6,6 +6,7 @@ import { useFileDrop, DropOverlay } from "./useFileDrop.tsx";
 import { GhAuthButton } from "../github/GhAuthButton";
 import { GhActivityIndicator } from "../github/GhActivityIndicator";
 import { GhContextMenuItems } from "../github/GhContextMenu";
+import { GhRepoDialog } from "../github/GhRepoDialog";
 import "./FileTree.css";
 
 export type Feature = "github";
@@ -899,6 +900,8 @@ export function FileTree({
           </>
         )}
       </div>
+
+      {hasGithub && <GhRepoDialog fs={fs} onChanged={() => setInternalRefresh((k) => k + 1)} />}
     </div>
   );
 }

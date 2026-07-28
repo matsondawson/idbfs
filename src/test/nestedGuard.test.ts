@@ -19,23 +19,23 @@ describe("gh init refuses to nest inside an existing repo by default", () => {
 
   it("gh init succeeds in a fresh, unconfigured directory", async () => {
     await fs.mkdir("/project");
-    const result = await ghCommand(["init", "alice/repo"], "/project", fs);
+    const result = await ghCommand(["init", "alice/repo", "main"], "/project", fs);
     expect(outputText(result)).toContain("initialized sync root");
     expect((await readConfig(fs, "/project"))?.repo).toBe("repo");
   });
 
   it("gh init is refused inside an already-configured directory tree", async () => {
     await fs.mkdir("/project/nested");
-    await ghCommand(["init", "alice/outer-repo"], "/project", fs);
+    await ghCommand(["init", "alice/outer-repo", "main"], "/project", fs);
 
-    const result = await ghCommand(["init", "bob/inner-repo"], "/project/nested", fs);
+    const result = await ghCommand(["init", "bob/inner-repo", "main"], "/project/nested", fs);
     expect(outputText(result)).toContain("already inside a repo synced to alice/outer-repo");
     expect(await fs.exists("/project/nested/.github/idbfs-sync.json")).toBe(false);
   });
 
   it("gh init --force overrides the nesting guard", async () => {
     await fs.mkdir("/project/nested");
-    await ghCommand(["init", "alice/outer-repo"], "/project", fs);
+    await ghCommand(["init", "alice/outer-repo", "main"], "/project", fs);
 
     const result = await ghCommand(
       ["init", "bob/inner-repo", "main", "--force"],
@@ -61,7 +61,7 @@ describe("warnIfNested (the shared guard behind both gh init and gh clone)", () 
 
   it("returns a warning naming the existing repo when nested", async () => {
     await fs.mkdir("/project/inner");
-    await ghCommand(["init", "alice/outer-repo"], "/project", fs);
+    await ghCommand(["init", "alice/outer-repo", "main"], "/project", fs);
 
     const warning = await warnIfNested(fs, "/project/inner", false);
     expect(warning).not.toBeNull();
@@ -72,7 +72,7 @@ describe("warnIfNested (the shared guard behind both gh init and gh clone)", () 
 
   it("returns null (bypassed) when force is true, even when nested", async () => {
     await fs.mkdir("/project/inner");
-    await ghCommand(["init", "alice/outer-repo"], "/project", fs);
+    await ghCommand(["init", "alice/outer-repo", "main"], "/project", fs);
 
     expect(await warnIfNested(fs, "/project/inner", true)).toBeNull();
   });
