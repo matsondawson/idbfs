@@ -292,6 +292,7 @@ import { FileTree } from "@octalgia/idbfs";
 - `features?: Feature[]` — currently `Feature = "github"`; defaults to `["github"]`. Drop `"github"` from the array to hide `toolbar` and `renderContextMenuExtra` regardless of what's passed in — a runtime kill switch for the GitHub-sync UI hooks below, for consumers that wire up sync but want to toggle it off without unmounting
 - `toolbar` — optional `ReactNode` rendered next to the `Filter ▾` button (only shown when `features` includes `"github"`)
 - `renderContextMenuExtra(entry, close)` — inject extra context-menu items (used by GitHub sync's per-folder actions; only invoked when `features` includes `"github"`)
+- `preview?: boolean` — show the file preview panel below the tree when a file is clicked, default `true`. Pass `false` for narrow embeds; clicking a file then only selects it and no file contents are read
 
 OS file drop and clipboard image paste are built in — both `FileTree` and `Terminal` accept an `onUploaded?: (names: string[]) => void` prop and handle drag/paste internally.
 

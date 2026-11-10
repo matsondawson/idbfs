@@ -95,4 +95,23 @@ describe("FileTree readOnly / features", () => {
     fireEvent.contextMenu(row);
     expect(await screen.findByText("my extra")).not.toBeNull();
   });
+
+  it("shows the preview panel on file click by default", async () => {
+    await seed();
+    const fs = await new Idbfs({ dbName }).init();
+    const { container } = render(<FileTree fs={fs} refreshKey={0} />);
+    fireEvent.click(await screen.findByText("hello.txt"));
+    expect(await screen.findByText("hi")).not.toBeNull();
+    expect(container.querySelector(".idbfs-tree__preview")).not.toBeNull();
+  });
+
+  it("never shows the preview panel when preview is false", async () => {
+    await seed();
+    const fs = await new Idbfs({ dbName }).init();
+    const { container } = render(<FileTree fs={fs} refreshKey={0} preview={false} />);
+    fireEvent.click(await screen.findByText("hello.txt"));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(container.querySelector(".idbfs-tree__preview")).toBeNull();
+    expect(screen.queryByText("hi")).toBeNull();
+  });
 });
