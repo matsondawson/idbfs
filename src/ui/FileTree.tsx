@@ -22,6 +22,8 @@ interface Props {
   toolbar?: React.ReactNode;
   /** Extra context-menu items, rendered after any feature-provided items. */
   renderContextMenuExtra?: (entry: ListEntry, close: () => void) => React.ReactNode;
+  /** Show the file preview panel under the tree when a file is clicked. Default `true`. */
+  preview?: boolean;
 }
 
 interface ContextMenu {
@@ -46,6 +48,7 @@ export function FileTree({
   features = ["github"],
   toolbar = "Files:",
   renderContextMenuExtra,
+  preview: showPreview = true,
 }: Props) {
   const readOnly = fs.readOnly;
   const hasGithub = features.includes("github");
@@ -280,11 +283,11 @@ export function FileTree({
       } else {
         setSelectedIds(new Set([entry.id]));
         lastClickedId.current = entry.id;
-        if (entry.type === "file") void loadPreview(entry);
+        if (entry.type === "file" && showPreview) void loadPreview(entry);
         else setPreview(null);
       }
     },
-    [childMap, expanded, loadPreview, isVisible],
+    [childMap, expanded, loadPreview, isVisible, showPreview],
   );
 
   const handleContextMenu = useCallback((e: React.MouseEvent, entry: ListEntry) => {
@@ -799,7 +802,7 @@ export function FileTree({
         {renderNode(DOT_ENTRY, 0)}
       </div>
 
-      {preview && (
+      {showPreview && preview && (
         <div className="idbfs-tree__preview">
           <div className="idbfs-tree__preview-name">{preview.name}</div>
           {preview.url && preview.mime.startsWith("image/") && (
